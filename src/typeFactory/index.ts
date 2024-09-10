@@ -1,0 +1,327 @@
+import ts, { PropertySignature } from "typescript";
+import { createIdentifier } from "../utils";
+import { SingleType, WebExtensionType, WithOptional } from "./types";
+import {
+  isArrayType,
+  isBooleanType,
+  isEnumStringType,
+  isWithInstanceOf,
+  isIntegerType,
+  isNullType,
+  isNumberType,
+  isObjectType,
+  isOptional,
+  isReferenceType,
+  isStringType,
+  isUnionType,
+  isWithId,
+  isWithPatternProperties,
+  isWithAdditionalProperties,
+} from "./guards";
+
+export const createSingleTyping = (
+  theType: WebExtensionType,
+  factory: ts.NodeFactory,
+  isInline: boolean = false
+):
+  | undefined
+  // | ts.SyntaxKind
+  | ts.ArrayTypeNode
+  | ts.PropertySignature
+  | ts.InterfaceDeclaration
+  | ts.IntersectionTypeNode
+  | ts.TypeReferenceNode
+  | ts.LiteralTypeNode
+  | ts.TypeLiteralNode
+  | ts.KeywordTypeNode
+  | ts.UnionTypeNode
+  | ts.TypeAliasDeclaration => {
+  try {
+    if (isNullType(theType)) {
+      if (isInline) {
+        return factory.createLiteralTypeNode(factory.createNull());
+      }
+    }
+    // resolve an array type
+    else if (isArrayType(theType)) {
+      const _type = factory.createArrayTypeNode(
+        createSingleTyping(theType.items, factory, true) as ts.TypeNode
+      );
+
+      if (isInline) {
+        return _type;
+      }
+
+      return factory.createTypeAliasDeclaration(
+        undefined,
+        factory.createIdentifier(theType.id),
+        undefined,
+        _type
+      );
+    }
+    // resolve a union type
+    else if (isUnionType(theType)) {
+      const _type = factory.createUnionTypeNode(
+        theType.choices.map(
+          // TODO: remove ugly type assertion
+          (choice) => createSingleTyping(choice, factory, true)! as ts.TypeNode
+        )
+      );
+
+      if (isInline) {
+        return _type;
+      }
+
+      return factory.createTypeAliasDeclaration(
+        undefined,
+        factory.createIdentifier(theType.id),
+        undefined,
+        _type
+      );
+    }
+    // resolve a reference type
+    else if (isReferenceType(theType)) {
+      const referenceType = factory.createTypeReferenceNode(theType.$ref);
+      if (isInline) {
+        return referenceType;
+      } else {
+        return factory.createPropertySignature(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          referenceType
+        );
+      }
+    }
+    // check if it is a string type, or a string enum type
+    else if (isStringType(theType)) {
+      if (isEnumStringType(theType)) {
+        const _type = factory.createUnionTypeNode(
+          theType.enum.map((value) =>
+            factory.createLiteralTypeNode(factory.createStringLiteral(value))
+          )
+        );
+
+        if (isInline) {
+          return _type;
+        }
+
+        return factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          _type
+        );
+      } else {
+        // simple string type
+        if (isInline) {
+          // if it's an inline type, return the type directly
+          return factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword);
+        }
+
+        // if it's not an inline type, create a type alias
+        return factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+        );
+      }
+    }
+    // check if it is a boolean type
+    else if (isBooleanType(theType)) {
+      if (isInline) {
+        return factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
+      } else {
+        return factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+        );
+      }
+    }
+    // check if it is an object type
+    else if (isObjectType(theType)) {
+      if (theType.properties === undefined) {
+        let _type = undefined;
+
+        if (isWithInstanceOf(theType)) {
+          _type = factory.createTypeReferenceNode(theType.isInstanceOf);
+        } else if (isWithPatternProperties(theType)) {
+          const props = Object.entries(theType.patternProperties);
+          const valueTypes = props.reduce((acc, [_, value]) => {
+            const propType = createSingleTyping(value, factory, true);
+            if (propType) {
+              acc.push(propType);
+            }
+            return acc;
+          }, new Array<ts.Node>());
+
+          _type = factory.createTypeLiteralNode([
+            factory.createIndexSignature(
+              undefined,
+              [
+                factory.createParameterDeclaration(
+                  undefined,
+                  undefined,
+                  factory.createIdentifier("key"),
+                  undefined,
+                  factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+                  undefined
+                ),
+              ],
+              factory.createUnionTypeNode(
+                valueTypes.filter((value) => ts.isTypeNode(value))
+              )
+            ),
+          ]);
+        }
+
+        // check for additional options for the base type
+        if (isWithAdditionalProperties(theType)) {
+          let additionalType = undefined;
+
+          if (
+            "boolean" === typeof theType.additionalProperties &&
+            theType.additionalProperties === true
+          ) {
+            // when it's only "additionalProperties: true", we allow any additional properties
+            additionalType = factory.createTypeLiteralNode([
+              factory.createIndexSignature(
+                undefined,
+                [
+                  factory.createParameterDeclaration(
+                    undefined,
+                    undefined,
+                    factory.createIdentifier("key"),
+                    undefined,
+                    factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+                    undefined
+                  ),
+                ],
+                factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+              ),
+            ]);
+          } else if (
+            "boolean" !== typeof theType.additionalProperties &&
+            isReferenceType(theType.additionalProperties)
+          ) {
+            additionalType = factory.createTypeReferenceNode(
+              theType.additionalProperties.$ref
+            );
+          }
+
+          if (additionalType) {
+            if (_type) {
+              // create an intersection type
+              _type = factory.createIntersectionTypeNode([
+                _type,
+                additionalType,
+              ]);
+            } else {
+              _type = additionalType;
+            }
+          }
+        }
+
+        if (_type) {
+          if (isInline) {
+            return _type;
+          } else {
+            return factory.createTypeAliasDeclaration(
+              undefined,
+              factory.createIdentifier(theType.id),
+              undefined,
+              _type
+            );
+          }
+        }
+
+        throw Error(`Object type must have properties: ${theType.id}`);
+      }
+
+      const props: PropertySignature[] = [];
+      Object.entries(theType.properties).forEach(([propName, subType]) => {
+        const _type = createSingleTyping(subType, factory, true);
+
+        if (_type == undefined) {
+          throw Error(`Type is undefined for ${theType.id}`);
+        }
+
+        const identifier = createIdentifier(propName, factory);
+        props.push(
+          factory.createPropertySignature(
+            undefined,
+            identifier,
+            isOptional(_type)
+              ? factory.createToken(ts.SyntaxKind.QuestionToken)
+              : undefined,
+            // createSingleTyping(subType, true) as ts.TypeNode
+            // factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+            _type as ts.TypeNode
+          )
+        );
+        // }
+      });
+
+      if (isInline) {
+        return factory.createTypeLiteralNode(props);
+      } else {
+        return factory.createInterfaceDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          undefined,
+          props
+        );
+      }
+    } else if (isIntegerType(theType) || isNumberType(theType)) {
+      if (isInline) {
+        return factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword);
+      } else {
+        return factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
+        );
+      }
+    } else {
+      if (isWithId(theType) && theType.id && isInline === false) {
+        return factory.createInterfaceDeclaration(
+          undefined,
+          theType.id,
+          undefined,
+          undefined,
+          []
+        );
+      }
+    }
+  } catch (ex: any) {
+    if (isWithId(theType)) {
+      console.error(`Error creating typing for ${theType.id}: ${ex.message}`);
+    }
+    if (isInline) {
+      return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+    } else {
+      if (isWithId(theType)) {
+        // if we have an ID then we can use `any`, otherwise we should fail
+        return factory.createPropertySignature(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+        );
+      } else {
+        /* ouch - but silent for now */
+      }
+    }
+  }
+
+  console.error(
+    `Failed to create typing for ${isWithId(theType) ? theType.id : "unknown"}`
+  );
+
+  return undefined;
+};
