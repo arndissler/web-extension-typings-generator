@@ -124,10 +124,17 @@ for (const file of schemaFiles) {
 
 const factory = ts.factory;
 
-const createNamespaceModules = (mergedSchema: { [key: string]: any }) => {
+const createNamespaceModules = (
+  mergedSchema: { [key: string]: any },
+  options: { ignoredNamespaces: string[] }
+) => {
   const statements: ts.Statement[] = [];
 
   Object.entries(mergedSchema).forEach(([namespace, _value]) => {
+    if (options.ignoredNamespaces.includes(namespace)) {
+      return;
+    }
+
     statements.push(
       factory.createModuleDeclaration(
         undefined,
@@ -152,7 +159,7 @@ const createNamespaceModules = (mergedSchema: { [key: string]: any }) => {
 const nsMessenger = factory.createModuleDeclaration(
   [factory.createModifier(ts.SyntaxKind.DeclareKeyword)],
   factory.createIdentifier("messenger"),
-  createNamespaceModules(mergedSchema),
+  createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }),
   ts.NodeFlags.Namespace
 );
 

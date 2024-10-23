@@ -204,6 +204,39 @@ export const createSingleTyping = (
               ),
             ]);
           } else if (
+            "object" === typeof theType.additionalProperties &&
+            theType.additionalProperties.type
+          ) {
+            const propType = createSingleTyping(
+              theType.additionalProperties,
+              factory,
+              true
+            );
+            if (propType && ts.isTypeNode(propType)) {
+              additionalType = factory.createTypeLiteralNode([
+                factory.createIndexSignature(
+                  undefined,
+                  [
+                    factory.createParameterDeclaration(
+                      undefined,
+                      undefined,
+                      factory.createIdentifier("key"),
+                      undefined,
+                      factory.createKeywordTypeNode(
+                        ts.SyntaxKind.StringKeyword
+                      ),
+                      undefined
+                    ),
+                  ],
+                  propType
+                ),
+              ]);
+            } else {
+              additionalType = factory.createKeywordTypeNode(
+                ts.SyntaxKind.AnyKeyword
+              );
+            }
+          } else if (
             "boolean" !== typeof theType.additionalProperties &&
             isReferenceType(theType.additionalProperties)
           ) {
@@ -276,7 +309,9 @@ export const createSingleTyping = (
           props
         );
       }
-    } else if (isIntegerType(theType) || isNumberType(theType)) {
+    }
+    // check if it is a number type
+    else if (isIntegerType(theType) || isNumberType(theType)) {
       if (isInline) {
         return factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword);
       } else {
