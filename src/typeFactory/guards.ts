@@ -17,6 +17,9 @@ import {
   WithPatternProperties,
   AnyType,
   WithAdditionalProperties,
+  FunctionType,
+  WithFunctions,
+  AsyncFunctionType,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -77,6 +80,23 @@ export const isArrayType = (type: WebExtensionType): type is ArrayType => {
     (type as ArrayType).type === "array" &&
     (type as ArrayType).items !== undefined
   );
+};
+export const isFunctionType = (
+  type: WebExtensionType
+): type is FunctionType => {
+  return (type as FunctionType).type === "function";
+};
+
+export const isAsyncFunctionType = (
+  type: WebExtensionType
+): type is AsyncFunctionType => {
+  return isFunctionType(type) && (type as AsyncFunctionType).async === true;
+};
+
+export const isWithFunctions = (
+  type: WebExtensionType
+): type is WithFunctions => {
+  return Array.isArray((type as WithFunctions).functions);
 };
 
 export const isStringType = (type: WebExtensionType): type is StringType => {

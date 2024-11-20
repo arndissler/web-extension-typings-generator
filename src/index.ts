@@ -16,7 +16,9 @@ const createTypingsForNamespace = (
   mergedSchema: WebExtensionSchemaMapping,
   factory: ts.NodeFactory
 ): readonly ts.Node[] => {
-  const types = mergedSchema[namespace].types || [];
+  const types = (mergedSchema[namespace].types || []).concat(
+    mergedSchema[namespace].functions || []
+  );
 
   const typeDeclarations: ts.Node[] = [];
   for (const type of types) {
@@ -40,7 +42,8 @@ const createTypingsForNamespace = (
           // ts.isTypeLiteralNode(declaration) ||
           ts.isLiteralTypeNode(declaration) ||
           ts.isInterfaceDeclaration(declaration) ||
-          ts.isPropertySignature(declaration))
+          ts.isPropertySignature(declaration) ||
+          ts.isMethodSignature(declaration))
       ) {
         // if (declaration && typeof declaration !== "number") {
         typeDeclarations.push(declaration);

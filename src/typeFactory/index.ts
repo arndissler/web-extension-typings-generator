@@ -17,7 +17,59 @@ import {
   isWithId,
   isWithPatternProperties,
   isWithAdditionalProperties,
+  isFunctionType,
+  isWithFunctions,
 } from "./guards";
+
+type TypeMapper = (
+  _type: WebExtensionType,
+  factory: ts.NodeFactory
+) => ts.TypeReferenceNode | "skip";
+
+type StaticTypeMapping = {
+  type: Partial<WebExtensionType> & { [key: string]: any };
+  mapper: TypeMapper;
+};
+
+const typeMappings: StaticTypeMapping[] = [
+  {
+    type: {
+      id: "ImageData",
+      isInstanceOf: "ImageData",
+      postprocess: "convertImageDataToURL",
+      type: "object",
+    },
+    mapper: (_theType: WebExtensionType, factory: ts.NodeFactory) => {
+      return "skip";
+    },
+  },
+];
+
+const findStaticTypeMapping = (type: WebExtensionType) => {
+  const mappedType = typeMappings.find((mapping) => {
+    const keysSource = Object.keys(type);
+    const keysMapping = Object.keys(mapping.type);
+
+    if (keysSource.length !== keysMapping.length) {
+      return false;
+    }
+
+    if (
+      keysSource.every((key) => keysMapping.includes(key)) &&
+      keysSource.every((key) => (type as any)[key] === mapping.type[key])
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  if (mappedType) {
+    return mappedType.mapper;
+  }
+
+  return null;
+};
 
 export const createSingleTyping = (
   theType: WebExtensionType,
@@ -27,7 +79,10 @@ export const createSingleTyping = (
   | undefined
   // | ts.SyntaxKind
   | ts.ArrayTypeNode
+  | ts.FunctionTypeNode
   | ts.PropertySignature
+  | ts.MethodSignature
+  | ts.MethodDeclaration
   | ts.InterfaceDeclaration
   | ts.IntersectionTypeNode
   | ts.TypeReferenceNode
@@ -37,9 +92,47 @@ export const createSingleTyping = (
   | ts.UnionTypeNode
   | ts.TypeAliasDeclaration => {
   try {
-    if (isNullType(theType)) {
+    const mapper = findStaticTypeMapping(theType);
+    if (mapper) {
+      const mappedType = mapper(theType, factory);
+      if (typeof mappedType === "string" && mappedType === "skip") {
+        // nothing to do here
+      } else {
+        return mappedType;
+      }
+    } else if (isNullType(theType)) {
       if (isInline) {
         return factory.createLiteralTypeNode(factory.createNull());
+      }
+    }
+    // resolve a function type
+    else if (isFunctionType(theType)) {
+      const _type = factory.createFunctionTypeNode(
+        undefined,
+        [],
+        factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+      );
+      if (isInline) {
+        return _type;
+      } else {
+        return factory.createMethodDeclaration(
+          undefined,
+          undefined,
+          factory.createIdentifier("X" + theType.name),
+          undefined,
+          undefined,
+          [],
+          undefined,
+          undefined
+        );
+        // return factory.createMethodSignature(
+        //   undefined,
+        //   factory.createIdentifier(theType.name),
+        //   undefined,
+        //   undefined,
+        //   [],
+        //   undefined
+        // );
       }
     }
     // resolve an array type
@@ -143,39 +236,55 @@ export const createSingleTyping = (
     }
     // check if it is an object type
     else if (isObjectType(theType)) {
+      let _typeFunctions = new Array<ts.MethodSignature>(); //[];
+      if (isWithFunctions(theType)) {
+        const functions = theType.functions || [];
+        _typeFunctions = functions
+          .map((func) => {
+            let singleTyping = createSingleTyping(func, factory);
+            if (singleTyping && ts.isMethodSignature(singleTyping)) {
+              return singleTyping;
+            }
+            return undefined;
+          })
+          .filter((item) => item !== undefined);
+      }
+
       if (theType.properties === undefined) {
         let _type = undefined;
 
         if (isWithInstanceOf(theType)) {
           _type = factory.createTypeReferenceNode(theType.isInstanceOf);
-        } else if (isWithPatternProperties(theType)) {
-          const props = Object.entries(theType.patternProperties);
-          const valueTypes = props.reduce((acc, [_, value]) => {
-            const propType = createSingleTyping(value, factory, true);
-            if (propType) {
-              acc.push(propType);
-            }
-            return acc;
-          }, new Array<ts.Node>());
+        } else {
+          if (isWithPatternProperties(theType)) {
+            const props = Object.entries(theType.patternProperties);
+            const valueTypes = props.reduce((acc, [_, value]) => {
+              const propType = createSingleTyping(value, factory, true);
+              if (propType) {
+                acc.push(propType);
+              }
+              return acc;
+            }, new Array<ts.Node>());
 
-          _type = factory.createTypeLiteralNode([
-            factory.createIndexSignature(
-              undefined,
-              [
-                factory.createParameterDeclaration(
-                  undefined,
-                  undefined,
-                  factory.createIdentifier("key"),
-                  undefined,
-                  factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
-                  undefined
-                ),
-              ],
-              factory.createUnionTypeNode(
-                valueTypes.filter((value) => ts.isTypeNode(value))
-              )
-            ),
-          ]);
+            _type = factory.createTypeLiteralNode([
+              factory.createIndexSignature(
+                undefined,
+                [
+                  factory.createParameterDeclaration(
+                    undefined,
+                    undefined,
+                    factory.createIdentifier("key"),
+                    undefined,
+                    factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+                    undefined
+                  ),
+                ],
+                factory.createUnionTypeNode(
+                  valueTypes.filter((value) => ts.isTypeNode(value))
+                )
+              ),
+            ]);
+          }
         }
 
         // check for additional options for the base type
@@ -271,7 +380,8 @@ export const createSingleTyping = (
           }
         }
 
-        throw Error(`Object type must have properties: ${theType.id}`);
+        // throw Error(`Object type must have properties: ${theType.id}`);
+        console.warn(`Object type must have properties: ${theType.id}`);
       }
 
       const props: PropertySignature[] = [];
@@ -301,12 +411,13 @@ export const createSingleTyping = (
       if (isInline) {
         return factory.createTypeLiteralNode(props);
       } else {
+        const _props = [...props, ..._typeFunctions];
         return factory.createInterfaceDeclaration(
           undefined,
           factory.createIdentifier(theType.id),
           undefined,
           undefined,
-          props
+          _props
         );
       }
     }

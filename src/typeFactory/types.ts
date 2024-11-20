@@ -18,6 +18,10 @@ export interface WithInstanceOf extends ObjectType {
   isInstanceOf: string;
 }
 
+export interface WithFunctions extends ObjectType {
+  functions: FunctionType[];
+}
+
 export interface WithPatternProperties extends ObjectType {
   patternProperties: { [key: string]: SingleType & WithOptional };
 }
@@ -43,6 +47,19 @@ export interface EnumType extends WithId, WithDescription {
 export interface ArrayType extends WithId, WithDescription {
   type: "array";
   items: SingleType;
+}
+
+export interface FunctionType extends WithDescription {
+  type: "function";
+  name: string;
+}
+
+export interface AsyncFunctionType extends FunctionType {
+  async: boolean;
+}
+
+export interface OptionalFunctionType extends FunctionType {
+  optional: boolean;
 }
 
 export interface SingleType extends WithId, WithDescription {
@@ -79,6 +96,7 @@ export type WebExtensionType =
   | ArrayType
   | BooleanType
   | EnumType
+  | FunctionType
   | IntegerType
   | NullType
   | NumberType
@@ -92,7 +110,7 @@ export type WebExtensionSchemaMapping = {
   [key: string]: {
     types: WebExtensionType[];
     events: any[];
-    functions: any[];
+    functions: FunctionType[];
     permissions: string[];
     properties: any[];
     description: string;
