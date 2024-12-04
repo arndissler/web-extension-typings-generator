@@ -28,11 +28,6 @@ const createTypingsForNamespace = (
     }
 
     if (isWithId(type) && type.id) {
-      if (isWithDescription(type)) {
-        const comment = createDescription(type, factory);
-        typeDeclarations.push(comment);
-      }
-
       const declaration = createSingleTyping(type, factory, false);
 
       if (

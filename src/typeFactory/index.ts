@@ -1,5 +1,5 @@
 import ts, { isTypeNode, PropertySignature } from "typescript";
-import { createIdentifier } from "../utils";
+import { createIdentifier, sanitizeDescription } from "../utils";
 import { SingleType, WebExtensionType, WithOptional } from "./types";
 import {
   isArrayType,
@@ -24,6 +24,7 @@ import {
   isWithFunctionParameters,
   isWithName,
   isAnyType,
+  isWithDescription,
 } from "./guards";
 
 type TypeMapper = (
@@ -183,11 +184,14 @@ export const createSingleTyping = (
         return _type;
       }
 
-      return factory.createTypeAliasDeclaration(
-        undefined,
-        factory.createIdentifier(theType.id),
-        undefined,
-        _type
+      return addJsDocAnnotation(
+        theType,
+        factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          _type
+        )
       );
     }
     // resolve a union type
@@ -203,11 +207,14 @@ export const createSingleTyping = (
         return _type;
       }
 
-      return factory.createTypeAliasDeclaration(
-        undefined,
-        factory.createIdentifier(theType.id),
-        undefined,
-        _type
+      return addJsDocAnnotation(
+        theType,
+        factory.createTypeAliasDeclaration(
+          undefined,
+          factory.createIdentifier(theType.id),
+          undefined,
+          _type
+        )
       );
     }
     // resolve a reference type
@@ -237,11 +244,14 @@ export const createSingleTyping = (
           return _type;
         }
 
-        return factory.createTypeAliasDeclaration(
-          undefined,
-          factory.createIdentifier(theType.id),
-          undefined,
-          _type
+        return addJsDocAnnotation(
+          theType,
+          factory.createTypeAliasDeclaration(
+            undefined,
+            factory.createIdentifier(theType.id),
+            undefined,
+            _type
+          )
         );
       } else {
         // simple string type
@@ -251,11 +261,14 @@ export const createSingleTyping = (
         }
 
         // if it's not an inline type, create a type alias
-        return factory.createTypeAliasDeclaration(
-          undefined,
-          factory.createIdentifier(theType.id),
-          undefined,
-          factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+        return addJsDocAnnotation(
+          theType,
+          factory.createTypeAliasDeclaration(
+            undefined,
+            factory.createIdentifier(theType.id),
+            undefined,
+            factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+          )
         );
       }
     }
@@ -264,11 +277,14 @@ export const createSingleTyping = (
       if (isInline) {
         return factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
       } else {
-        return factory.createTypeAliasDeclaration(
-          undefined,
-          factory.createIdentifier(theType.id),
-          undefined,
-          factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+        return addJsDocAnnotation(
+          theType,
+          factory.createTypeAliasDeclaration(
+            undefined,
+            factory.createIdentifier(theType.id),
+            undefined,
+            factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+          )
         );
       }
     }
@@ -293,7 +309,7 @@ export const createSingleTyping = (
             console.log(`Create method signature: ${JSON.stringify(func)}`);
             let singleTyping = createSingleTyping(func, factory, false);
             if (singleTyping && ts.isMethodSignature(singleTyping)) {
-              return singleTyping;
+              return addJsDocAnnotation(func, singleTyping);
             }
 
             console.log(`Not a function: ${func.name}`);
@@ -436,15 +452,18 @@ export const createSingleTyping = (
 
           const identifier = createIdentifier(propName, factory);
           props.push(
-            factory.createPropertySignature(
-              undefined,
-              identifier,
-              isOptional(_type)
-                ? factory.createToken(ts.SyntaxKind.QuestionToken)
-                : undefined,
-              // createSingleTyping(subType, true) as ts.TypeNode
-              // factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-              _type as ts.TypeNode
+            addJsDocAnnotation(
+              subType,
+              factory.createPropertySignature(
+                undefined,
+                identifier,
+                isOptional(_type)
+                  ? factory.createToken(ts.SyntaxKind.QuestionToken)
+                  : undefined,
+                // createSingleTyping(subType, true) as ts.TypeNode
+                // factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+                _type as ts.TypeNode
+              )
             )
           );
           // }
@@ -463,13 +482,14 @@ export const createSingleTyping = (
           ...objectDefinition.properties,
           ...objectDefinition.functions,
         ];
-        return factory.createInterfaceDeclaration(
+        const maybeInterface = factory.createInterfaceDeclaration(
           undefined,
           factory.createIdentifier(theType.id),
           undefined,
           undefined,
           _props
         );
+        return addJsDocAnnotation(theType, maybeInterface);
       }
     }
     // check if it is a number type
@@ -529,4 +549,16 @@ export const createSingleTyping = (
   );
 
   return undefined;
+};
+
+const addJsDocAnnotation = <T extends ts.Node>(type: any, returnType: T): T => {
+  if (isWithDescription(type)) {
+    return ts.addSyntheticLeadingComment(
+      returnType,
+      ts.SyntaxKind.MultiLineCommentTrivia,
+      `*\n* ${sanitizeDescription(type.description)}`,
+      true
+    );
+  }
+  return returnType;
 };

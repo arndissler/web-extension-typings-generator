@@ -37,8 +37,20 @@ export const createDescription = (
   factory: ts.NodeFactory
 ) => {
   const comment = factory.createJSDocComment(
-    type.description.replace(/<\/?var>/g, "`"),
+    sanitizeDescription(type.description),
     undefined
   );
   return comment;
+};
+
+export const sanitizeDescription = (description: string) => {
+  return description
+    .replace(/<\/?var>/g, "`")
+    .replace(/<\/?em>/g, "_")
+    .replace(/<\/?code>/g, "`")
+    .replace(/\$\(ref:([a-zA-Z\.0-9]+)\)/g, "{@link $1}")
+    .replace(
+      /<a href=['"]?(https:\/\/[a-zA-Z0-9\.\/\-_#]+)['"]?[^>]*>([^<]*)<\/a>/g,
+      "{@link $1|$2}"
+    );
 };
