@@ -10,6 +10,10 @@ export interface WithOptional {
   optional: boolean;
 }
 
+export interface WithName {
+  name: string;
+}
+
 export interface AnyType {
   type: "any";
 }
@@ -20,6 +24,10 @@ export interface WithInstanceOf extends ObjectType {
 
 export interface WithFunctions extends ObjectType {
   functions: FunctionType[];
+}
+
+export interface WithProps extends ObjectType {
+  properties: { [key: string]: SingleType & WithOptional };
 }
 
 export interface WithPatternProperties extends ObjectType {
@@ -60,6 +68,10 @@ export interface AsyncFunctionType extends FunctionType {
 
 export interface OptionalFunctionType extends FunctionType {
   optional: boolean;
+}
+
+export interface WithFunctionParameters extends FunctionType {
+  parameters: SingleType[];
 }
 
 export interface SingleType extends WithId, WithDescription {

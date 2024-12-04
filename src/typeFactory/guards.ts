@@ -20,10 +20,17 @@ import {
   FunctionType,
   WithFunctions,
   AsyncFunctionType,
+  WithProps,
+  WithFunctionParameters,
+  WithName,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
   return (type as WithId).id !== undefined;
+};
+
+export const isWithName = (type: any): type is WithName => {
+  return (type as WithName).name !== undefined;
 };
 
 export const isWithDescription = (type: any): type is WithDescription => {
@@ -93,10 +100,24 @@ export const isAsyncFunctionType = (
   return isFunctionType(type) && (type as AsyncFunctionType).async === true;
 };
 
+export const isWithFunctionParameters = (
+  type: WebExtensionType
+): type is WithFunctionParameters => {
+  return (
+    (type as WithFunctionParameters).parameters !== undefined &&
+    Array.isArray((type as WithFunctionParameters).parameters) &&
+    (type as WithFunctionParameters).parameters.length > 0
+  );
+};
+
 export const isWithFunctions = (
   type: WebExtensionType
 ): type is WithFunctions => {
   return Array.isArray((type as WithFunctions).functions);
+};
+
+export const isWithProps = (type: WebExtensionType): type is WithProps => {
+  return (type as WithProps).properties !== undefined;
 };
 
 export const isStringType = (type: WebExtensionType): type is StringType => {
