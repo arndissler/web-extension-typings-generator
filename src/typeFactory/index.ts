@@ -45,7 +45,15 @@ const typeMappings: StaticTypeMapping[] = [
       postprocess: "convertImageDataToURL",
       type: "object",
     },
-    mapper: (_theType: WebExtensionType, factory: ts.NodeFactory) => {
+    mapper: (_theType: WebExtensionType, _factory: ts.NodeFactory) => {
+      return "skip";
+    },
+  },
+  {
+    type: {
+      unsupported: true,
+    },
+    mapper: (_theType: WebExtensionType, _factory: ts.NodeFactory) => {
       return "skip";
     },
   },
@@ -56,13 +64,13 @@ const findStaticTypeMapping = (type: WebExtensionType) => {
     const keysSource = Object.keys(type);
     const keysMapping = Object.keys(mapping.type);
 
-    if (keysSource.length !== keysMapping.length) {
+    if (keysSource.length < keysMapping.length) {
       return false;
     }
 
     if (
-      keysSource.every((key) => keysMapping.includes(key)) &&
-      keysSource.every((key) => (type as any)[key] === mapping.type[key])
+      keysMapping.every((key) => keysSource.includes(key)) &&
+      keysMapping.every((key) => (type as any)[key] === mapping.type[key])
     ) {
       return true;
     }
@@ -103,6 +111,7 @@ export const createSingleTyping = (
       const mappedType = mapper(theType, factory);
       if (typeof mappedType === "string" && mappedType === "skip") {
         // nothing to do here
+        return undefined;
       } else {
         return mappedType;
       }
@@ -111,6 +120,7 @@ export const createSingleTyping = (
         return factory.createLiteralTypeNode(factory.createNull());
       }
     }
+
     if (isAnyType(theType)) {
       return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
     }
