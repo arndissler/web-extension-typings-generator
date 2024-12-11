@@ -1,6 +1,6 @@
 import ts, { isTypeNode, PropertySignature } from "typescript";
 import { createIdentifier, sanitizeDescription } from "../utils";
-import { SingleType, WebExtensionType, WithOptional } from "./types";
+import { WebExtensionType } from "./types";
 import {
   isArrayType,
   isBooleanType,
@@ -164,14 +164,6 @@ export const createSingleTyping = (
           [],
           returnType
         );
-        // return factory.createMethodSignature(
-        //   undefined,
-        //   factory.createIdentifier(theType.name),
-        //   undefined,
-        //   undefined,
-        //   [],
-        //   undefined
-        // );
       }
     }
     // resolve an array type
@@ -290,8 +282,6 @@ export const createSingleTyping = (
     }
     // check if it is an object type
     else if (isObjectType(theType)) {
-      // let _typeFunctions = new Array<ts.MethodSignature>(); //[];
-
       let _type = undefined;
       let objectDefinition = {
         functions: new Array<ts.MethodSignature>(),
@@ -306,8 +296,7 @@ export const createSingleTyping = (
         const functions = theType.functions || [];
         objectDefinition.functions = functions
           .map((func) => {
-            console.log(`Create method signature: ${JSON.stringify(func)}`);
-            let singleTyping = createSingleTyping(func, factory, false);
+            const singleTyping = createSingleTyping(func, factory, false);
             if (singleTyping && ts.isMethodSignature(singleTyping)) {
               return addJsDocAnnotation(func, singleTyping);
             }
@@ -423,49 +412,29 @@ export const createSingleTyping = (
       }
 
       if (isWithProps(theType)) {
-        // check for additional options for the base type
-
-        // if (_type) {
-        //   if (isInline) {
-        //     return _type;
-        //   } else {
-        //     return factory.createTypeAliasDeclaration(
-        //       undefined,
-        //       factory.createIdentifier(theType.id),
-        //       undefined,
-        //       _type
-        //     );
-        //   }
-        // }
-
-        // throw Error(`Object type must have properties: ${theType.id}`);
-        // console.warn(`Object type must have properties: ${theType.id}`);
-
         const props: PropertySignature[] = [];
         Object.entries(theType.properties).forEach(([propName, subType]) => {
           console.log(`Create property signature: ${propName}, ${subType}`);
           const _type = createSingleTyping(subType, factory, true);
 
           if (_type == undefined) {
-            throw Error(`Type is undefined for ${theType.id}`);
-          }
-
-          const identifier = createIdentifier(propName, factory);
-          props.push(
-            addJsDocAnnotation(
-              subType,
-              factory.createPropertySignature(
-                undefined,
-                identifier,
-                isOptional(_type)
-                  ? factory.createToken(ts.SyntaxKind.QuestionToken)
-                  : undefined,
-                // createSingleTyping(subType, true) as ts.TypeNode
-                // factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-                _type as ts.TypeNode
+            console.error(`Type is undefined for ${theType.id}`);
+          } else {
+            const identifier = createIdentifier(propName, factory);
+            props.push(
+              addJsDocAnnotation(
+                subType,
+                factory.createPropertySignature(
+                  undefined,
+                  identifier,
+                  isOptional(_type)
+                    ? factory.createToken(ts.SyntaxKind.QuestionToken)
+                    : undefined,
+                  _type as ts.TypeNode
+                )
               )
-            )
-          );
+            );
+          }
           // }
         });
 

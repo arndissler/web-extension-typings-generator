@@ -4,12 +4,7 @@ import ts from "typescript";
 
 import { createSingleTyping } from "./typeFactory";
 import { WebExtensionSchemaMapping } from "./typeFactory/types";
-import {
-  isReferenceType,
-  isWithDescription,
-  isWithId,
-} from "./typeFactory/guards";
-import { createDescription } from "./utils";
+import { isReferenceType, isWithId } from "./typeFactory/guards";
 
 const createTypingsForNamespace = (
   namespace: string,
@@ -118,6 +113,8 @@ for (const file of schemaFiles) {
   } else {
     console.error(`Schema in ${file} is not an array`);
   }
+
+  // Object.assign(mergedSchema);
 }
 
 const factory = ts.factory;
@@ -159,6 +156,8 @@ const nsMessenger = factory.createModuleDeclaration(
   factory.createIdentifier("messenger"),
   createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }),
   ts.NodeFlags.Namespace
+  //
+  //, factory.createNamedExports(Object.keys(mergedSchema).map(key => factory.createExportSpecifier(undefined, factory.createIdentifier(key)))
 );
 
 const source = ts.createSourceFile(
@@ -168,8 +167,8 @@ const source = ts.createSourceFile(
   false,
   ts.ScriptKind.TS
 );
-const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 
+const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 const src = printer.printList(
   ts.ListFormat.MultiLineBlockStatements,
   factory.createNodeArray([
@@ -196,6 +195,13 @@ function bootstrapWindowVariables(): ts.Statement {
         factory.createIdentifier("messenger"),
         undefined,
         factory.createTypeReferenceNode("typeof messenger")
+        // factory.createKeywordTypeNode(ts.SyntaxKind.TypeOfKeyword)
+        // factory.createTypeReferenceNode(
+        //   factory.createQualifiedName(
+        //     factory.createIdentifier("messenger"),
+        //     factory.createIdentifier("messenger")
+        //   ),
+        // )
       ),
     ]
   );
