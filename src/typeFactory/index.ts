@@ -286,7 +286,7 @@ export const createSingleTyping = (
         return addJsDocAnnotation(
           theType,
           factory.createTypeAliasDeclaration(
-            undefined,
+            [factory.createToken(ts.SyntaxKind.ExportKeyword)],
             factory.createIdentifier(theType.id),
             undefined,
             _type
@@ -303,7 +303,7 @@ export const createSingleTyping = (
         return addJsDocAnnotation(
           theType,
           factory.createTypeAliasDeclaration(
-            undefined,
+            [factory.createToken(ts.SyntaxKind.ExportKeyword)],
             factory.createIdentifier(theType.id),
             undefined,
             factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
@@ -499,7 +499,7 @@ export const createSingleTyping = (
           ...objectDefinition.functions,
         ];
         const maybeInterface = factory.createInterfaceDeclaration(
-          undefined,
+          [factory.createToken(ts.SyntaxKind.ExportKeyword)],
           factory.createIdentifier(theType.id),
           undefined,
           undefined,
@@ -514,7 +514,7 @@ export const createSingleTyping = (
         return factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword);
       } else {
         return factory.createTypeAliasDeclaration(
-          undefined,
+          [factory.createToken(ts.SyntaxKind.ExportKeyword)],
           factory.createIdentifier(theType.id),
           undefined,
           factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword)
