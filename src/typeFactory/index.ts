@@ -25,6 +25,7 @@ import {
   isWithName,
   isAnyType,
   isWithDescription,
+  isWithDeprecation,
 } from "./guards";
 
 type TypeMapper = (
@@ -505,6 +506,10 @@ export const createSingleTyping = (
     }
       return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
     if (context === "inline") {
+      return addJsDocAnnotation(
+        { description: `From exception: ${ex.message}` },
+        factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+      );
     } else {
       if (isWithId(theType)) {
         // if we have an ID then we can use `any`, otherwise we should fail
@@ -532,13 +537,26 @@ export const createSingleTyping = (
 };
 
 const addJsDocAnnotation = <T extends ts.Node>(type: any, returnType: T): T => {
+  let description = "";
+  let deprecationMessage = "";
+
+  if (isWithDeprecation(type)) {
+    deprecationMessage = `*\n* @deprecated ${type.deprecated}`;
+  }
   if (isWithDescription(type)) {
+    description = `*\n* ${sanitizeDescription(type.description)}`;
+  }
+
+  const comment = `${description}${deprecationMessage}`.trim();
+
+  if (comment.length === 0) {
+    return returnType;
+  } else {
     return ts.addSyntheticLeadingComment(
       returnType,
       ts.SyntaxKind.MultiLineCommentTrivia,
-      `*\n* ${sanitizeDescription(type.description)}`,
+      comment,
       true
     );
   }
-  return returnType;
 };

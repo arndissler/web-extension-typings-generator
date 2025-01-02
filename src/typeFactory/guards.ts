@@ -23,6 +23,7 @@ import {
   WithProps,
   WithFunctionParameters,
   WithName,
+  WithDeprecation,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -35,6 +36,10 @@ export const isWithName = (type: any): type is WithName => {
 
 export const isWithDescription = (type: any): type is WithDescription => {
   return (type as WithDescription).description !== undefined;
+};
+
+export const isWithDeprecation = (type: any): type is WithDeprecation => {
+  return (type as WithDeprecation).deprecated !== undefined;
 };
 
 export const isOptional = (type: any): type is WithOptional => {

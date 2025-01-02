@@ -2,6 +2,10 @@ export interface WithDescription {
   description: string;
 }
 
+export interface WithDeprecation {
+  deprecated: string;
+}
+
 export interface WithId {
   id: string;
 }
