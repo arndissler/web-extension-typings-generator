@@ -95,6 +95,7 @@ export const createSingleTyping = (
   // | ts.SyntaxKind
   | ts.ArrayTypeNode
   | ts.FunctionTypeNode
+  | ts.FunctionDeclaration
   | ts.PropertySignature
   | ts.MethodSignature
   | ts.MethodDeclaration
@@ -123,7 +124,23 @@ export const createSingleTyping = (
     }
 
     if (isAnyType(theType)) {
-      return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+      if (context === "inline") {
+        return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+      } else {
+        if (isWithId(theType)) {
+          return addJsDocAnnotation(
+            theType,
+            factory.createTypeAliasDeclaration(
+              undefined,
+              factory.createIdentifier(theType.id),
+              undefined,
+              factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+            )
+          );
+        } else {
+          throw new Error("Type without id found (of type: any)");
+        }
+      }
     }
     // resolve a function type
     else if (isFunctionType(theType)) {
@@ -167,14 +184,32 @@ export const createSingleTyping = (
           );
         }
 
-        return factory.createMethodSignature(
-          undefined,
-          factory.createIdentifier(theType.name),
-          undefined,
-          undefined,
-          [],
-          returnType
-        );
+        if (context === "namespace") {
+          return addJsDocAnnotation(
+            theType,
+            factory.createFunctionDeclaration(
+              [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+              undefined,
+              factory.createIdentifier(theType.name),
+              undefined,
+              [],
+              returnType,
+              undefined
+            )
+          );
+        } else {
+          return addJsDocAnnotation(
+            theType,
+            factory.createMethodSignature(
+              undefined,
+              factory.createIdentifier(theType.name),
+              undefined,
+              undefined,
+              [],
+              returnType
+            )
+          );
+        }
       }
     }
     // resolve an array type

@@ -4,7 +4,13 @@ import ts from "typescript";
 
 import { createSingleTyping } from "./typeFactory";
 import { WebExtensionSchemaMapping } from "./typeFactory/types";
-import { isReferenceType, isWithId } from "./typeFactory/guards";
+import {
+  isFunctionType,
+  isReferenceType,
+  isWithId,
+  isWithName,
+} from "./typeFactory/guards";
+import { reservedWords } from "./reservedWords";
 
 const createTypingsForNamespace = (
   namespace: string,
@@ -22,7 +28,53 @@ const createTypingsForNamespace = (
       console.warn(`Reference types are not supported yet: ${type.$ref}`);
     }
 
-    if (isWithId(type) && type.id) {
+    if (isFunctionType(type) && isWithName(type)) {
+      const functionDeclaration = createSingleTyping(
+        type,
+        factory,
+        "namespace"
+      );
+
+      if (
+        functionDeclaration &&
+        ts.isFunctionDeclaration(functionDeclaration)
+      ) {
+        const functionName = functionDeclaration.name?.text;
+        if (functionName && reservedWords.includes(functionName)) {
+          const functionAliasName = `__${functionName}`;
+          let originalFunction = factory.updateFunctionDeclaration(
+            functionDeclaration,
+            [],
+            functionDeclaration.asteriskToken,
+            factory.createIdentifier(functionAliasName),
+            functionDeclaration.typeParameters,
+            functionDeclaration.parameters,
+            functionDeclaration.type,
+            undefined
+          );
+
+          let exportedFunctionDeclaration = factory.createExportDeclaration(
+            undefined,
+            false,
+            factory.createNamedExports([
+              factory.createExportSpecifier(
+                false,
+                factory.createIdentifier(functionAliasName),
+                factory.createIdentifier(functionName)
+              ),
+            ]),
+            undefined,
+            undefined
+          );
+
+          typeDeclarations.push(originalFunction);
+          typeDeclarations.push(exportedFunctionDeclaration);
+        } else {
+          typeDeclarations.push(functionDeclaration);
+        }
+      }
+    } else if (isWithId(type) && type.id) {
+      // refers to a type that has an id
       const declaration = createSingleTyping(type, factory, "interface");
 
       if (
