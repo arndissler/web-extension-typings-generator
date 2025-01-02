@@ -23,7 +23,7 @@ const createTypingsForNamespace = (
     }
 
     if (isWithId(type) && type.id) {
-      const declaration = createSingleTyping(type, factory, false);
+      const declaration = createSingleTyping(type, factory, "interface");
 
       if (
         declaration &&

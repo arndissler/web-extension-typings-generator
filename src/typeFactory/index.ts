@@ -30,7 +30,7 @@ import {
 type TypeMapper = (
   _type: WebExtensionType,
   factory: ts.NodeFactory
-) => ts.TypeReferenceNode | "skip";
+) => ts.TypeReferenceNode | ts.KeywordTypeNode | "skip";
 
 type StaticTypeMapping = {
   type: Partial<WebExtensionType> & { [key: string]: any };
@@ -88,7 +88,7 @@ const findStaticTypeMapping = (type: WebExtensionType) => {
 export const createSingleTyping = (
   theType: WebExtensionType,
   factory: ts.NodeFactory,
-  isInline: boolean = false
+  context: "namespace" | "interface" | "inline" = "inline"
 ):
   | undefined
   // | ts.SyntaxKind
@@ -116,7 +116,7 @@ export const createSingleTyping = (
         return mappedType;
       }
     } else if (isNullType(theType)) {
-      if (isInline) {
+      if (context === "inline") {
         return factory.createLiteralTypeNode(factory.createNull());
       }
     }
@@ -131,7 +131,7 @@ export const createSingleTyping = (
         [],
         factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
       );
-      if (isInline) {
+      if (context === "inline") {
         return _type;
       } else {
         const isAsync = isAsyncFunctionType(theType) && theType.async === true;
@@ -151,7 +151,7 @@ export const createSingleTyping = (
             let maybeReturnType = createSingleTyping(
               maybeCallback.parameters[0],
               factory,
-              true
+              "inline"
             );
             if (maybeReturnType && isTypeNode(maybeReturnType)) {
               returnType = maybeReturnType;
@@ -179,10 +179,10 @@ export const createSingleTyping = (
     // resolve an array type
     else if (isArrayType(theType)) {
       const _type = factory.createArrayTypeNode(
-        createSingleTyping(theType.items, factory, true) as ts.TypeNode
+        createSingleTyping(theType.items, factory, "inline") as ts.TypeNode
       );
 
-      if (isInline) {
+      if (context === "inline") {
         return _type;
       }
 
@@ -201,11 +201,12 @@ export const createSingleTyping = (
       const _type = factory.createUnionTypeNode(
         theType.choices.map(
           // TODO: remove ugly type assertion
-          (choice) => createSingleTyping(choice, factory, true)! as ts.TypeNode
+          (choice) =>
+            createSingleTyping(choice, factory, "inline")! as ts.TypeNode
         )
       );
 
-      if (isInline) {
+      if (context === "inline") {
         return _type;
       }
 
@@ -222,7 +223,7 @@ export const createSingleTyping = (
     // resolve a reference type
     else if (isReferenceType(theType)) {
       const referenceType = factory.createTypeReferenceNode(theType.$ref);
-      if (isInline) {
+      if (context === "inline") {
         return referenceType;
       } else {
         return factory.createPropertySignature(
@@ -242,7 +243,7 @@ export const createSingleTyping = (
           )
         );
 
-        if (isInline) {
+        if (context === "inline") {
           return _type;
         }
 
@@ -257,7 +258,7 @@ export const createSingleTyping = (
         );
       } else {
         // simple string type
-        if (isInline) {
+        if (context === "inline") {
           // if it's an inline type, return the type directly
           return factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword);
         }
@@ -276,7 +277,7 @@ export const createSingleTyping = (
     }
     // check if it is a boolean type
     else if (isBooleanType(theType)) {
-      if (isInline) {
+      if (context === "inline") {
         return factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword);
       } else {
         return addJsDocAnnotation(
@@ -306,7 +307,7 @@ export const createSingleTyping = (
         const functions = theType.functions || [];
         objectDefinition.functions = functions
           .map((func) => {
-            const singleTyping = createSingleTyping(func, factory, false);
+            const singleTyping = createSingleTyping(func, factory, "interface");
             if (singleTyping && ts.isMethodSignature(singleTyping)) {
               return addJsDocAnnotation(func, singleTyping);
             }
@@ -320,7 +321,7 @@ export const createSingleTyping = (
       if (isWithPatternProperties(theType)) {
         const props = Object.entries(theType.patternProperties);
         const valueTypes = props.reduce((acc, [_, value]) => {
-          const propType = createSingleTyping(value, factory, true);
+          const propType = createSingleTyping(value, factory, "interface");
           if (propType) {
             acc.push(propType);
           }
@@ -378,7 +379,7 @@ export const createSingleTyping = (
           const propType = createSingleTyping(
             theType.additionalProperties,
             factory,
-            true
+            "inline"
           );
           if (propType && ts.isTypeNode(propType)) {
             additionalType = factory.createTypeLiteralNode([
@@ -424,8 +425,8 @@ export const createSingleTyping = (
       if (isWithProps(theType)) {
         const props: PropertySignature[] = [];
         Object.entries(theType.properties).forEach(([propName, subType]) => {
-          console.log(`Create property signature: ${propName}, ${subType}`);
-          const _type = createSingleTyping(subType, factory, true);
+          // console.log(`Create property signature: ${propName}, ${subType}`);
+          const _type = createSingleTyping(subType, factory, "inline");
 
           if (_type == undefined) {
             console.error(`Type is undefined for ${theType.id}`);
@@ -451,7 +452,7 @@ export const createSingleTyping = (
         objectDefinition.properties = props;
       }
 
-      if (isInline) {
+      if (context === "inline") {
         return factory.createTypeLiteralNode([
           ...objectDefinition.properties,
           ...objectDefinition.functions,
@@ -473,7 +474,7 @@ export const createSingleTyping = (
     }
     // check if it is a number type
     else if (isIntegerType(theType) || isNumberType(theType)) {
-      if (isInline) {
+      if (context === "inline") {
         return factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword);
       } else {
         return factory.createTypeAliasDeclaration(
@@ -484,7 +485,7 @@ export const createSingleTyping = (
         );
       }
     } else {
-      if (isWithId(theType) && theType.id && isInline === false) {
+      if (isWithId(theType) && theType.id && context !== "inline") {
         return factory.createInterfaceDeclaration(
           undefined,
           theType.id,
@@ -502,8 +503,8 @@ export const createSingleTyping = (
         }`
       );
     }
-    if (isInline) {
       return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+    if (context === "inline") {
     } else {
       if (isWithId(theType)) {
         // if we have an ID then we can use `any`, otherwise we should fail
