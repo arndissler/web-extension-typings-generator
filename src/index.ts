@@ -29,10 +29,11 @@ const createTypingsForNamespace = (
     }
 
     if (isFunctionType(type) && isWithName(type)) {
-      const functionDeclaration = createSingleTyping(type, factory, {
+      const functionDeclaration = createSingleTyping(type, {
         currentNamespace: namespace,
         knownTypes: types,
         schemaCatalog: mergedSchema,
+        factory,
         context: "namespace",
       });
 
@@ -76,10 +77,11 @@ const createTypingsForNamespace = (
       }
     } else if (isWithId(type) && type.id) {
       // refers to a type that has an id
-      const declaration = createSingleTyping(type, factory, {
+      const declaration = createSingleTyping(type, {
         currentNamespace: namespace,
         knownTypes: types,
         schemaCatalog: mergedSchema,
+        factory,
         context: "interface",
       });
 

@@ -1,5 +1,6 @@
 import ts from "typescript";
 import { WithDescription } from "./typeFactory/types";
+import { isWithDeprecation, isWithDescription } from "./typeFactory/guards";
 
 export enum IdentifierTreatment {
   invalid = 0,
@@ -29,6 +30,34 @@ export const createIdentifier = (
       return factory.createStringLiteral(id);
     case IdentifierTreatment.invalid:
       throw Error(`Invalid identifier: ${id}`);
+  }
+};
+
+export const addJsDocAnnotation = <T extends ts.Node>(
+  type: any,
+  returnType: T
+): T => {
+  let description = "";
+  let deprecationMessage = "";
+
+  if (isWithDeprecation(type)) {
+    deprecationMessage = `*\n* @deprecated ${type.deprecated}`;
+  }
+  if (isWithDescription(type)) {
+    description = `*\n* ${sanitizeDescription(type.description)}`;
+  }
+
+  const comment = `${description}${deprecationMessage}`.trim();
+
+  if (comment.length === 0) {
+    return returnType;
+  } else {
+    return ts.addSyntheticLeadingComment(
+      returnType,
+      ts.SyntaxKind.MultiLineCommentTrivia,
+      comment,
+      true
+    );
   }
 };
 

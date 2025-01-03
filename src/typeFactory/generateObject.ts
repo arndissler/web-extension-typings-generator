@@ -1,0 +1,266 @@
+import ts, { PropertySignature } from "typescript";
+import {
+  isOptional,
+  isReferenceType,
+  isUnsupported,
+  isWithAdditionalProperties,
+  isWithFunctions,
+  isWithInstanceOf,
+  isWithPatternProperties,
+  isWithProps,
+} from "./guards";
+import { ObjectType, TypeGeneratorContext } from "./types";
+import {
+  addJsDocAnnotation,
+  createIdentifier,
+  findIdentifierTreatment,
+  IdentifierTreatment,
+} from "../utils";
+import { createSingleTyping } from "./index";
+
+export const generateObjectType = (
+  type: ObjectType,
+  ctx: TypeGeneratorContext
+) => {
+  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+
+  let _type = undefined;
+  let objectDefinition = {
+    functions: new Array<ts.MethodSignature>(),
+    properties: new Array<ts.PropertySignature>(),
+    patternProperties: new Array<ts.TypeLiteralNode>(),
+  };
+
+  if (isWithInstanceOf(type)) {
+    _type = factory.createTypeReferenceNode(type.isInstanceOf);
+  }
+
+  if (isWithFunctions(type)) {
+    const functions = type.functions || [];
+    objectDefinition.functions = functions
+      .map((func) => {
+        const singleTyping = createSingleTyping(func, {
+          currentNamespace,
+          knownTypes,
+          schemaCatalog,
+          factory,
+          context: "interface",
+        });
+        if (singleTyping && ts.isMethodSignature(singleTyping)) {
+          return addJsDocAnnotation(func, singleTyping);
+        }
+
+        console.log(`Not a function: ${func.name}`);
+        return undefined;
+      })
+      .filter((item) => item !== undefined);
+  }
+
+  if (isWithPatternProperties(type)) {
+    const props = Object.entries(type.patternProperties);
+    const unionPropTypes = [];
+    const valueTypes = props.reduce((acc, [propName, value]) => {
+      const propNameIdentifier = findIdentifierTreatment(propName);
+      const isValidPropertyName =
+        propNameIdentifier === IdentifierTreatment.valid;
+      const propType = createSingleTyping(value, {
+        currentNamespace,
+        knownTypes,
+        schemaCatalog,
+        factory,
+        context: isValidPropertyName ? "interface" : "inline",
+      });
+
+      if (propType) {
+        // the property name is valid, and we have a type for it
+        if (ts.isPropertySignature(propType)) {
+          objectDefinition.properties.push(propType);
+        } else {
+          acc.push(propType);
+        }
+      } else {
+        // the pattern property name is not valid, so create an index property
+        unionPropTypes.push(propType);
+      }
+      return acc;
+    }, new Array<ts.Node>());
+
+    const _indexSignature = factory.createIndexSignature(
+      undefined,
+      [
+        factory.createParameterDeclaration(
+          undefined,
+          undefined,
+          factory.createIdentifier("key"),
+          undefined,
+          factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+          undefined
+        ),
+      ],
+      factory.createUnionTypeNode(
+        valueTypes.filter((value) => ts.isTypeNode(value))
+      )
+    );
+    objectDefinition.patternProperties.push(
+      factory.createTypeLiteralNode([_indexSignature])
+    );
+  }
+
+  if (isWithAdditionalProperties(type)) {
+    let additionalType = undefined;
+
+    if (
+      "boolean" === typeof type.additionalProperties &&
+      type.additionalProperties === true
+    ) {
+      // when it's only "additionalProperties: true", we allow any additional properties
+      additionalType = factory.createTypeLiteralNode([
+        factory.createIndexSignature(
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createIdentifier("key"),
+              undefined,
+              factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+              undefined
+            ),
+          ],
+          factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+        ),
+      ]);
+    } else if (
+      "object" === typeof type.additionalProperties &&
+      type.additionalProperties.type
+    ) {
+      const propType = createSingleTyping(type.additionalProperties, {
+        currentNamespace,
+        knownTypes,
+        schemaCatalog,
+        factory,
+        context: "inline",
+      });
+      if (propType && ts.isTypeNode(propType)) {
+        additionalType = factory.createTypeLiteralNode([
+          factory.createIndexSignature(
+            undefined,
+            [
+              factory.createParameterDeclaration(
+                undefined,
+                undefined,
+                factory.createIdentifier("key"),
+                undefined,
+                factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+                undefined
+              ),
+            ],
+            propType
+          ),
+        ]);
+      } else {
+        additionalType = factory.createKeywordTypeNode(
+          ts.SyntaxKind.AnyKeyword
+        );
+      }
+    } else if (
+      "boolean" !== typeof type.additionalProperties &&
+      isReferenceType(type.additionalProperties)
+    ) {
+      additionalType = factory.createTypeReferenceNode(
+        type.additionalProperties.$ref
+      );
+    }
+
+    if (additionalType) {
+      if (_type) {
+        // create an intersection type
+        // TODO: push to intersection type list
+        _type = factory.createIntersectionTypeNode([_type, additionalType]);
+        // objectDefinition.
+      } else {
+        // TODO: push to property list as additional property
+        _type = additionalType;
+        // objectDefinition.properties.push(additionalType);
+      }
+    }
+  }
+
+  if (isWithProps(type)) {
+    const props: PropertySignature[] = [];
+    Object.entries(type.properties).forEach(([propName, subType]) => {
+      // console.log(`Create property signature: ${propName}, ${subType}`);
+      const _type = createSingleTyping(subType, {
+        currentNamespace,
+        knownTypes,
+        schemaCatalog,
+        factory,
+        context: "inline",
+      });
+
+      if (_type == undefined) {
+        if (isUnsupported(subType)) {
+          console.warn(
+            `Warning: skipping unsupported property ${currentNamespace}.${type.id}.${propName}`
+          );
+        } else {
+          console.error(
+            `Error: cannot create property type for ${currentNamespace}.${type.id}.${propName}`
+          );
+        }
+      } else {
+        const identifier = createIdentifier(propName, factory);
+        props.push(
+          addJsDocAnnotation(
+            subType,
+            factory.createPropertySignature(
+              undefined,
+              identifier,
+              isOptional(_type)
+                ? factory.createToken(ts.SyntaxKind.QuestionToken)
+                : undefined,
+              _type as ts.TypeNode
+            )
+          )
+        );
+      }
+      // }
+    });
+
+    objectDefinition.properties = props;
+  }
+
+  if (context === "inline") {
+    const _maybeProps = [
+      ...objectDefinition.properties,
+      ...objectDefinition.functions,
+    ];
+
+    return factory.createIntersectionTypeNode(
+      [
+        _maybeProps.length > 0
+          ? factory.createTypeLiteralNode(_maybeProps)
+          : null,
+
+        ...objectDefinition.patternProperties,
+      ].filter((node) => node !== null)
+    );
+  }
+
+  if (context === "namespace" || context === "interface") {
+    const _props = [
+      ...objectDefinition.properties,
+      ...objectDefinition.functions,
+    ];
+    const maybeInterface = factory.createInterfaceDeclaration(
+      [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+      factory.createIdentifier(type.id),
+      undefined,
+      undefined,
+      _props
+    );
+    return addJsDocAnnotation(type, maybeInterface);
+  }
+
+  throw new Error("Invalid type generator context");
+};

@@ -1,3 +1,5 @@
+import ts from "typescript";
+
 export interface WithDescription {
   description: string;
 }
@@ -136,4 +138,12 @@ export type WebExtensionSchemaMapping = {
     description: string;
     sourceFile: string;
   };
+};
+
+export type TypeGeneratorContext = {
+  currentNamespace: string;
+  knownTypes: WebExtensionType[];
+  schemaCatalog: WebExtensionSchemaMapping;
+  context: "namespace" | "interface" | "inline";
+  factory: ts.NodeFactory;
 };
