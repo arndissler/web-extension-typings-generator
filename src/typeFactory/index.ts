@@ -280,6 +280,23 @@ export const createSingleTyping = (
     }
     // resolve a reference type
     else if (isReferenceType(theType)) {
+      const referenceLink = theType.$ref.split(".");
+      if (referenceLink.length === 1) {
+        // if it's a reference to a type in the same namespace we need to check whether it exists or not
+        const localType = schemaCatalog[currentNamespace].types.find(
+          (type) => isWithId(type) && type.id === theType.$ref
+        );
+        const manifestType = schemaCatalog["manifest"].types.find(
+          (type) => isWithId(type) && type.id === theType.$ref
+        );
+
+        if (localType === undefined && manifestType !== undefined) {
+          console.warn(
+            `Warning: schema incorrect, referenced local type: ${theType.$ref} in '${currentNamespace}', but should reference manifest.${theType.$ref}`
+          );
+          theType.$ref = `manifest.${theType.$ref}`;
+        }
+      }
       const referenceType = factory.createTypeReferenceNode(theType.$ref);
       if (context === "inline") {
         return referenceType;
