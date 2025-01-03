@@ -1,6 +1,11 @@
 import ts, { isTypeNode, PropertySignature } from "typescript";
-import { createIdentifier, sanitizeDescription } from "../utils";
-import { WebExtensionType } from "./types";
+import {
+  createIdentifier,
+  findIdentifierTreatment,
+  IdentifierTreatment,
+  sanitizeDescription,
+} from "../utils";
+import { WebExtensionSchemaMapping, WebExtensionType } from "./types";
 import {
   isArrayType,
   isBooleanType,
@@ -26,6 +31,7 @@ import {
   isAnyType,
   isWithDescription,
   isWithDeprecation,
+  isUnsupported,
 } from "./guards";
 
 type TypeMapper = (
@@ -89,7 +95,12 @@ const findStaticTypeMapping = (type: WebExtensionType) => {
 export const createSingleTyping = (
   theType: WebExtensionType,
   factory: ts.NodeFactory,
-  context: "namespace" | "interface" | "inline" = "inline"
+  ctx: {
+    currentNamespace: string;
+    knownTypes: WebExtensionType[];
+    schemaCatalog: WebExtensionSchemaMapping;
+    context: "namespace" | "interface" | "inline";
+  }
 ):
   | undefined
   // | ts.SyntaxKind
@@ -107,6 +118,7 @@ export const createSingleTyping = (
   | ts.KeywordTypeNode
   | ts.UnionTypeNode
   | ts.TypeAliasDeclaration => {
+  const { currentNamespace, knownTypes, schemaCatalog, context } = ctx;
   try {
     const mapper = findStaticTypeMapping(theType);
     if (mapper) {
@@ -149,7 +161,7 @@ export const createSingleTyping = (
         [],
         factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
       );
-      if (context === "inline") {
+      if (ctx.context === "inline") {
         return _type;
       } else {
         const isAsync = isAsyncFunctionType(theType) && theType.async === true;
@@ -169,7 +181,7 @@ export const createSingleTyping = (
             let maybeReturnType = createSingleTyping(
               maybeCallback.parameters[0],
               factory,
-              "inline"
+              { currentNamespace, knownTypes, schemaCatalog, context: "inline" }
             );
             if (maybeReturnType && isTypeNode(maybeReturnType)) {
               returnType = maybeReturnType;
@@ -215,7 +227,12 @@ export const createSingleTyping = (
     // resolve an array type
     else if (isArrayType(theType)) {
       const _type = factory.createArrayTypeNode(
-        createSingleTyping(theType.items, factory, "inline") as ts.TypeNode
+        createSingleTyping(theType.items, factory, {
+          currentNamespace,
+          knownTypes,
+          schemaCatalog,
+          context: "inline",
+        }) as ts.TypeNode
       );
 
       if (context === "inline") {
@@ -238,7 +255,12 @@ export const createSingleTyping = (
         theType.choices.map(
           // TODO: remove ugly type assertion
           (choice) =>
-            createSingleTyping(choice, factory, "inline")! as ts.TypeNode
+            createSingleTyping(choice, factory, {
+              currentNamespace,
+              knownTypes,
+              schemaCatalog,
+              context: "inline",
+            })! as ts.TypeNode
         )
       );
 
@@ -343,7 +365,12 @@ export const createSingleTyping = (
         const functions = theType.functions || [];
         objectDefinition.functions = functions
           .map((func) => {
-            const singleTyping = createSingleTyping(func, factory, "interface");
+            const singleTyping = createSingleTyping(func, factory, {
+              currentNamespace,
+              knownTypes,
+              schemaCatalog,
+              context: "interface",
+            });
             if (singleTyping && ts.isMethodSignature(singleTyping)) {
               return addJsDocAnnotation(func, singleTyping);
             }
@@ -462,10 +489,23 @@ export const createSingleTyping = (
         const props: PropertySignature[] = [];
         Object.entries(theType.properties).forEach(([propName, subType]) => {
           // console.log(`Create property signature: ${propName}, ${subType}`);
-          const _type = createSingleTyping(subType, factory, "inline");
+          const _type = createSingleTyping(subType, factory, {
+            currentNamespace,
+            knownTypes,
+            schemaCatalog,
+            context: "inline",
+          });
 
           if (_type == undefined) {
-            console.error(`Type is undefined for ${theType.id}`);
+            if (isUnsupported(subType)) {
+              console.warn(
+                `Warning: skipping unsupported property ${currentNamespace}.${theType.id}.${propName}`
+              );
+            } else {
+              console.error(
+                `Error: cannot create property type for ${currentNamespace}.${theType.id}.${propName}`
+              );
+            }
           } else {
             const identifier = createIdentifier(propName, factory);
             props.push(
@@ -539,7 +579,6 @@ export const createSingleTyping = (
         }`
       );
     }
-      return factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
     if (context === "inline") {
       return addJsDocAnnotation(
         { description: `From exception: ${ex.message}` },

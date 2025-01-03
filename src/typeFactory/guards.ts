@@ -24,6 +24,7 @@ import {
   WithFunctionParameters,
   WithName,
   WithDeprecation,
+  WithUnsupported,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -40,6 +41,16 @@ export const isWithDescription = (type: any): type is WithDescription => {
 
 export const isWithDeprecation = (type: any): type is WithDeprecation => {
   return (type as WithDeprecation).deprecated !== undefined;
+};
+
+export const isWithUnsupported = (type: any): type is WithUnsupported => {
+  return (type as WithUnsupported).unsupported !== undefined;
+};
+
+export const isUnsupported = (type: any): type is WithUnsupported => {
+  return (
+    isWithUnsupported(type) && (type as WithUnsupported).unsupported === true
+  );
 };
 
 export const isOptional = (type: any): type is WithOptional => {

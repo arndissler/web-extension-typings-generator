@@ -6,6 +6,10 @@ export interface WithDeprecation {
   deprecated: string;
 }
 
+export interface WithUnsupported {
+  unsupported: boolean;
+}
+
 export interface WithId {
   id: string;
 }

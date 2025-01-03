@@ -1,13 +1,13 @@
 import ts from "typescript";
 import { WithDescription } from "./typeFactory/types";
 
-enum IdentifierTreatment {
+export enum IdentifierTreatment {
   invalid = 0,
   valid = 1,
   escaped = 2,
 }
 
-const findIdentifierTreatment = (name: string): IdentifierTreatment => {
+export const findIdentifierTreatment = (name: string): IdentifierTreatment => {
   if (name.match(/^[a-zA-Z_$]{1}[a-zA-Z0-9_$]*$/)) {
     return IdentifierTreatment.valid;
   } else if (name.match(/[$_\p{ID_Start}][$\u200c\u200d\p{ID_Continue}]*/u)) {

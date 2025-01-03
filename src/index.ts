@@ -29,11 +29,12 @@ const createTypingsForNamespace = (
     }
 
     if (isFunctionType(type) && isWithName(type)) {
-      const functionDeclaration = createSingleTyping(
-        type,
-        factory,
-        "namespace"
-      );
+      const functionDeclaration = createSingleTyping(type, factory, {
+        currentNamespace: namespace,
+        knownTypes: types,
+        schemaCatalog: mergedSchema,
+        context: "namespace",
+      });
 
       if (
         functionDeclaration &&
@@ -75,7 +76,12 @@ const createTypingsForNamespace = (
       }
     } else if (isWithId(type) && type.id) {
       // refers to a type that has an id
-      const declaration = createSingleTyping(type, factory, "interface");
+      const declaration = createSingleTyping(type, factory, {
+        currentNamespace: namespace,
+        knownTypes: types,
+        schemaCatalog: mergedSchema,
+        context: "interface",
+      });
 
       if (
         declaration &&
