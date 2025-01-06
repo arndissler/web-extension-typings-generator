@@ -87,6 +87,7 @@ export const createSingleTyping = (
   ctx: TypeGeneratorContext
 ):
   | undefined
+  | ts.TypeNode
   | ts.ArrayTypeNode
   | ts.FunctionTypeNode
   | ts.FunctionDeclaration
