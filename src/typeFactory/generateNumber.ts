@@ -20,16 +20,5 @@ export const generateNumberType = (
     );
   }
 
-  // else {
-  //   if (isWithId(theType) && theType.id && context !== "inline") {
-  //     return factory.createInterfaceDeclaration(
-  //       undefined,
-  //       theType.id,
-  //       undefined,
-  //       undefined,
-  //       []
-  //     );
-  //   }
-
   throw new Error("Invalid type generator context");
 };

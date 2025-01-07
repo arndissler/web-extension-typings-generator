@@ -156,29 +156,6 @@ export const createSingleTyping = (
       return generateNumberType(theType as NumberType, ctx);
     }
   } catch (ex: any) {
-    // if (isWithId(theType)) {
-    //   console.error(
-    //     `Error creating typing for ${theType.id}: ${ex.message}, ${
-    //       (ex as any as Error).stack
-    //     }`
-    //   );
-    // }
-    // if (context === "inline") {
-    //   return addJsDocAnnotation(
-    //     { description: `From exception: ${ex.message}` },
-    //     factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-    //   );
-    // } else {
-    //   if (isWithId(theType)) {
-    //     // if we have an ID then we can use `any`, otherwise we should fail
-    //     return factory.createPropertySignature(
-    //       undefined,
-    //       factory.createIdentifier(theType.id),
-    //       undefined,
-    //       factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
-    //     );
-    //   } else {
-    //     /* ouch - but silent for now */
     console.warn(
       `Warning: There was an error creating a typing, namespace ${currentNamespace}, context ${context}, id: ${
         isWithId(theType) ? theType.id : "<unknown>"

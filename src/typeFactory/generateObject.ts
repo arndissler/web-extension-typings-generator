@@ -219,19 +219,6 @@ export const generateObjectType = (
         ),
       ]);
     }
-
-    // if (additionalType) {
-    //   if (_type) {
-    //     // create an intersection type
-    //     // TODO: push to intersection type list
-    //     _type = factory.createIntersectionTypeNode([_type, additionalType]);
-    //     // objectDefinition.
-    //   } else {
-    //     // TODO: push to property list as additional property
-    //     _type = additionalType;
-    //     // objectDefinition.properties.push(additionalType);
-    //   }
-    // }
   }
 
   if (context === "inline") {

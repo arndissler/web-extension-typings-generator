@@ -89,22 +89,18 @@ const createTypingsForNamespace = (
         declaration &&
         (ts.isTypeNode(declaration) ||
           ts.isTypeAliasDeclaration(declaration) ||
-          // ts.isTypeLiteralNode(declaration) ||
           ts.isLiteralTypeNode(declaration) ||
           ts.isInterfaceDeclaration(declaration) ||
           ts.isPropertySignature(declaration) ||
           ts.isMethodSignature(declaration))
       ) {
-        // if (declaration && typeof declaration !== "number") {
         typeDeclarations.push(declaration);
       } else {
-        // if (declaration === undefined) {
         console.warn(
           `Maybe error to create typing in ${namespace} for ${
             isWithId(type) ? type.id : "unknown"
           }`
         );
-        // } else
       }
     }
   }
@@ -173,8 +169,6 @@ for (const file of schemaFiles) {
   } else {
     console.error(`Schema in ${file} is not an array`);
   }
-
-  // Object.assign(mergedSchema);
 }
 
 const factory = ts.factory;
@@ -216,8 +210,6 @@ const nsMessenger = factory.createModuleDeclaration(
   factory.createIdentifier("messenger"),
   createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }),
   ts.NodeFlags.Namespace
-  //
-  //, factory.createNamedExports(Object.keys(mergedSchema).map(key => factory.createExportSpecifier(undefined, factory.createIdentifier(key)))
 );
 
 const source = ts.createSourceFile(
@@ -240,8 +232,6 @@ const src = printer.printList(
 );
 
 fs.writeFileSync(outfile, src, { flag: "w+" });
-console.log(src);
-console.log(mergedSchema);
 
 function bootstrapWindowVariables(): ts.Statement {
   return factory.createInterfaceDeclaration(
@@ -255,13 +245,6 @@ function bootstrapWindowVariables(): ts.Statement {
         factory.createIdentifier("messenger"),
         undefined,
         factory.createTypeReferenceNode("typeof messenger")
-        // factory.createKeywordTypeNode(ts.SyntaxKind.TypeOfKeyword)
-        // factory.createTypeReferenceNode(
-        //   factory.createQualifiedName(
-        //     factory.createIdentifier("messenger"),
-        //     factory.createIdentifier("messenger")
-        //   ),
-        // )
       ),
     ]
   );
