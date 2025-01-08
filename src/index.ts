@@ -11,6 +11,7 @@ import {
   isWithName,
 } from "./typeFactory/guards";
 import { reservedWords } from "./reservedWords";
+import { addJsDocAnnotation } from "./utils";
 
 const createTypingsForNamespace = (
   namespace: string,
@@ -102,6 +103,40 @@ const createTypingsForNamespace = (
           }`
         );
       }
+    }
+  }
+
+  for (const event of mergedSchema[namespace].events || []) {
+    const eventCallbackType = createSingleTyping(event, {
+      currentNamespace: namespace,
+      knownTypes: types,
+      schemaCatalog: mergedSchema,
+      factory,
+      context: "inline",
+    });
+
+    if (eventCallbackType && ts.isFunctionTypeNode(eventCallbackType)) {
+      const _eventDeclaration = factory.createVariableStatement(
+        [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+        factory.createVariableDeclarationList(
+          [
+            factory.createVariableDeclaration(
+              factory.createIdentifier(event.name),
+              undefined,
+              factory.createTypeReferenceNode(
+                factory.createIdentifier("WebExtEvent"),
+                [eventCallbackType]
+              ),
+              undefined
+            ),
+          ],
+          ts.NodeFlags.Const // | ts.NodeFlags.Constant
+        )
+      );
+
+      typeDeclarations.push(addJsDocAnnotation(event, _eventDeclaration));
+    } else {
+      console.warn(`Error creating event typing for ${namespace}`);
     }
   }
 
@@ -226,6 +261,7 @@ const src = printer.printList(
   factory.createNodeArray([
     /* /// <reference lib="dom" /> */
     bootstrapWindowVariables(),
+    ...bootstrapGlobalInterfaces(),
     nsMessenger,
   ]),
   source
@@ -248,4 +284,99 @@ function bootstrapWindowVariables(): ts.Statement {
       ),
     ]
   );
+}
+
+function bootstrapGlobalInterfaces(): ts.Statement[] {
+  return [
+    factory.createInterfaceDeclaration(
+      undefined,
+      factory.createIdentifier("WebExtEvent"),
+      [
+        factory.createTypeParameterDeclaration(
+          undefined,
+          factory.createIdentifier("TCallback"),
+          factory.createFunctionTypeNode(
+            undefined,
+            [
+              factory.createParameterDeclaration(
+                undefined,
+                factory.createToken(ts.SyntaxKind.DotDotDotToken),
+                factory.createIdentifier("args"),
+                undefined,
+                factory.createArrayTypeNode(
+                  factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+                ),
+                undefined
+              ),
+            ],
+            factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+          ),
+          undefined
+        ),
+      ],
+      undefined,
+      [
+        factory.createMethodSignature(
+          undefined,
+          factory.createIdentifier("addListener"),
+          undefined,
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createIdentifier("cb"),
+              undefined,
+              factory.createTypeReferenceNode(
+                factory.createIdentifier("TCallback"),
+                undefined
+              ),
+              undefined
+            ),
+          ],
+          factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+        ),
+        factory.createMethodSignature(
+          undefined,
+          factory.createIdentifier("removeListener"),
+          undefined,
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createIdentifier("cb"),
+              undefined,
+              factory.createTypeReferenceNode(
+                factory.createIdentifier("TCallback"),
+                undefined
+              ),
+              undefined
+            ),
+          ],
+          factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+        ),
+        factory.createMethodSignature(
+          undefined,
+          factory.createIdentifier("hasListener"),
+          undefined,
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createIdentifier("cb"),
+              undefined,
+              factory.createTypeReferenceNode(
+                factory.createIdentifier("TCallback"),
+                undefined
+              ),
+              undefined
+            ),
+          ],
+          factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)
+        ),
+      ]
+    ),
+  ];
 }
