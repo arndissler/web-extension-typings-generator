@@ -6,7 +6,9 @@ import { createSingleTyping } from "./typeFactory";
 import { WebExtensionSchemaMapping } from "./typeFactory/types";
 import {
   isFunctionType,
+  isOptional,
   isReferenceType,
+  isWithFunctionParameters,
   isWithId,
   isWithName,
 } from "./typeFactory/guards";
@@ -107,7 +109,7 @@ const createTypingsForNamespace = (
   }
 
   for (const event of mergedSchema[namespace].events || []) {
-    const eventCallbackType = createSingleTyping(event, {
+    let eventCallbackType = createSingleTyping(event, {
       currentNamespace: namespace,
       knownTypes: types,
       schemaCatalog: mergedSchema,
@@ -116,6 +118,68 @@ const createTypingsForNamespace = (
     });
 
     if (eventCallbackType && ts.isFunctionTypeNode(eventCallbackType)) {
+      const params =
+        isFunctionType(event) && isWithFunctionParameters(event)
+          ? event.parameters
+          : [];
+      const allParamsMandatory = params.every((param) => !isOptional(param));
+
+      if (!allParamsMandatory) {
+        const firstOptionalIndex = params.findIndex((param) =>
+          isOptional(param)
+        );
+        const firstMandatoryParams = params.findIndex(
+          (param) => !isOptional(param)
+        );
+
+        if (
+          firstOptionalIndex > -1 &&
+          firstMandatoryParams > -1 &&
+          firstOptionalIndex < firstMandatoryParams
+        ) {
+          // function declaration has optional parameters before mandatory ones
+          // this is not supported in TypeScript, so we need to build a new function type
+          // and create a union type with the new function type
+
+          const possibleCallbackTypes = [];
+          for (let i = firstOptionalIndex; i <= firstMandatoryParams; i++) {
+            const modifiedParams = [
+              ...params
+                .slice(i, firstMandatoryParams)
+                .map((item) => ({ ...item, optional: false })),
+              ...params.slice(firstMandatoryParams),
+            ];
+            const modifiedEvent = {
+              ...event,
+              parameters: modifiedParams,
+            };
+
+            const modifiedEventCallbackType = createSingleTyping(
+              modifiedEvent,
+              {
+                currentNamespace: namespace,
+                knownTypes: types,
+                schemaCatalog: mergedSchema,
+                factory,
+                context: "inline",
+              }
+            );
+
+            if (
+              modifiedEventCallbackType &&
+              ts.isFunctionTypeNode(modifiedEventCallbackType)
+            ) {
+              possibleCallbackTypes.push(modifiedEventCallbackType);
+            }
+          }
+
+          // create a union type with all possible function types
+          eventCallbackType = factory.createUnionTypeNode(
+            possibleCallbackTypes
+          );
+        }
+      }
+
       const _eventDeclaration = factory.createVariableStatement(
         [factory.createToken(ts.SyntaxKind.ExportKeyword)],
         factory.createVariableDeclarationList(
