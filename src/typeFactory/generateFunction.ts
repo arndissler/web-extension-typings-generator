@@ -3,6 +3,7 @@ import {
   isAsyncFunctionType,
   isOptional,
   isWithFunctionParameters,
+  isWithFunctionReturn,
   isWithName,
 } from "./guards";
 import {
@@ -59,6 +60,25 @@ export const generateFunctionType = (
     );
   }
 
+  if (
+    ts.isTypeNode(returnType) &&
+    returnType.kind === ts.SyntaxKind.VoidKeyword &&
+    isWithFunctionReturn(type)
+  ) {
+    // if the return type is still void, so check if we have another return type
+    const maybeReturnType = createSingleTyping(type.returns, {
+      currentNamespace,
+      knownTypes,
+      schemaCatalog,
+      factory,
+      context: "inline",
+    });
+
+    if (maybeReturnType && isTypeNode(maybeReturnType)) {
+      returnType = maybeReturnType;
+    }
+  }
+
   if (isAsync) {
     // wrap a promise around the return type when the function is async
     returnType = factory.createTypeReferenceNode(
@@ -96,7 +116,7 @@ export const generateFunctionType = (
         );
         return addJsDocAnnotation(param, paramDeclaration);
       }),
-      factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+      returnType
     );
     return lambdaFunctionEmpty;
   }

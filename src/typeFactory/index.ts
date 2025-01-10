@@ -1,5 +1,10 @@
 import ts from "typescript";
-import { NumberType, TypeGeneratorContext, WebExtensionType } from "./types";
+import {
+  NumberType,
+  SingleType,
+  TypeGeneratorContext,
+  WebExtensionType,
+} from "./types";
 import {
   isArrayType,
   isBooleanType,
@@ -13,6 +18,8 @@ import {
   isWithId,
   isFunctionType,
   isAnyType,
+  isWithFunctionParameters,
+  isWithName,
 } from "./guards";
 import { generateAnyType } from "./generateAny";
 import { generateArrayType } from "./generateArray";
@@ -24,10 +31,19 @@ import { generateBooleanType } from "./generateBoolean";
 import { generateNumberType } from "./generateNumber";
 import { generateObjectType } from "./generateObject";
 
+type WebExtensionTypeTransformer = (
+  type: WebExtensionType,
+  factory: ts.NodeFactory
+) => WebExtensionType;
+
 type TypeMapper = (
   _type: WebExtensionType,
   factory: ts.NodeFactory
-) => ts.TypeReferenceNode | ts.KeywordTypeNode | "skip";
+) =>
+  | ts.TypeReferenceNode
+  | ts.KeywordTypeNode
+  | "skip"
+  | WebExtensionTypeTransformer;
 
 type StaticTypeMapping = {
   type: Partial<WebExtensionType> & { [key: string]: any };
@@ -53,6 +69,35 @@ const typeMappings: StaticTypeMapping[] = [
     mapper: (_theType: WebExtensionType, _factory: ts.NodeFactory) => {
       return "skip";
     },
+  },
+  {
+    type: {
+      name: "onMessageExternal",
+      type: "function",
+    },
+    mapper:
+      (theType: WebExtensionType, _factory: ts.NodeFactory) =>
+      (theType: WebExtensionType, _factory: ts.NodeFactory) => {
+        if (isWithFunctionParameters(theType)) {
+          const parameters = theType.parameters.map((param) => {
+            if (isWithName(param) && param.name === "sendResponse") {
+              return {
+                ...param,
+                parameters: [
+                  {
+                    name: "response",
+                    type: "any",
+                    optional: true,
+                  },
+                ],
+              };
+            }
+            return param;
+          });
+          return { ...theType, parameters };
+        }
+        return { ...theType };
+      },
   },
 ];
 
@@ -83,7 +128,7 @@ const findStaticTypeMapping = (type: WebExtensionType) => {
 };
 
 export const createSingleTyping = (
-  theType: WebExtensionType,
+  type: WebExtensionType,
   ctx: TypeGeneratorContext
 ):
   | undefined
@@ -103,6 +148,8 @@ export const createSingleTyping = (
   | ts.UnionTypeNode
   | ts.TypeAliasDeclaration => {
   const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  let theType = type;
+
   try {
     const mapper = findStaticTypeMapping(theType);
 
@@ -111,6 +158,8 @@ export const createSingleTyping = (
       if (typeof mappedType === "string" && mappedType === "skip") {
         // nothing to do here
         return undefined;
+      } else if (typeof mappedType === "function") {
+        theType = mappedType(theType, factory);
       } else {
         return mappedType;
       }

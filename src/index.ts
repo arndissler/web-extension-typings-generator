@@ -118,6 +118,7 @@ const createTypingsForNamespace = (
     });
 
     if (eventCallbackType && ts.isFunctionTypeNode(eventCallbackType)) {
+      const paramTypes = eventCallbackType.parameters;
       const params =
         isFunctionType(event) && isWithFunctionParameters(event)
           ? event.parameters
@@ -194,7 +195,7 @@ const createTypingsForNamespace = (
               undefined
             ),
           ],
-          ts.NodeFlags.Const // | ts.NodeFlags.Constant
+          ts.NodeFlags.Const
         )
       );
 

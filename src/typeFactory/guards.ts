@@ -25,6 +25,7 @@ import {
   WithName,
   WithDeprecation,
   WithUnsupported,
+  WithReturn,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -125,6 +126,10 @@ export const isWithFunctionParameters = (
     (type as WithFunctionParameters).parameters.length > 0
   );
 };
+
+export const isWithFunctionReturn = (
+  type: WebExtensionType
+): type is WithReturn => (type as WithReturn).returns !== undefined;
 
 export const isWithFunctions = (
   type: WebExtensionType

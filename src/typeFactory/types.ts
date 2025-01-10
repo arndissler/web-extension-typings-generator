@@ -84,6 +84,10 @@ export interface WithFunctionParameters extends FunctionType {
   parameters: SingleType[];
 }
 
+export interface WithReturn extends FunctionType {
+  returns: SingleType;
+}
+
 export interface SingleType extends WithId, WithDescription {
   type:
     | "number"
