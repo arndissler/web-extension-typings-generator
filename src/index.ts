@@ -101,7 +101,7 @@ const createTypingsForNamespace = (
         typeDeclarations.push(declaration);
       } else {
         console.warn(
-          `Maybe error to create typing in ${namespace} for ${
+          `Warning: maybe error to create typing in ${namespace} for type ${
             isWithId(type) ? type.id : "unknown"
           }`
         );
@@ -223,74 +223,10 @@ const createTypingsForNamespace = (
   return typeDeclarations;
 };
 
-const outfile = path.join(__dirname, "..", ".out/messenger.d.ts");
-
-const schemaDir = path.join(
-  __dirname,
-  "..",
-  ".schemas/webext-schemas/schema-files"
-);
-const schemaFiles = fs.readdirSync(schemaDir);
-
-const mergedSchema: WebExtensionSchemaMapping = {};
-
-for (const file of schemaFiles) {
-  const filePath = path.join(schemaDir, file);
-  const schemaList = JSON.parse(fs.readFileSync(filePath, "utf8"));
-
-  if (Array.isArray(schemaList)) {
-    schemaList.forEach((schema) => {
-      try {
-        const {
-          events = [],
-          types = [],
-          functions = [],
-          namespace,
-          permissions = [],
-          properties = {},
-          description = "",
-        } = schema;
-        if (namespace) {
-          // console.log(`Merging schema for ${namespace}`);
-          if (mergedSchema[namespace]) {
-            mergedSchema[namespace].events =
-              mergedSchema[namespace].events.concat(events);
-            mergedSchema[namespace].types =
-              mergedSchema[namespace].types.concat(types);
-            mergedSchema[namespace].functions =
-              mergedSchema[namespace].functions.concat(functions);
-            mergedSchema[namespace].permissions =
-              mergedSchema[namespace].permissions.concat(permissions);
-            mergedSchema[namespace].properties =
-              mergedSchema[namespace].permissions.concat(properties);
-          } else {
-            mergedSchema[namespace] = {
-              description,
-              events,
-              types,
-              functions,
-              permissions,
-              properties,
-              sourceFile: file,
-            };
-          }
-        } else {
-          console.error(`Schema in ${file} does not have a namespace`);
-        }
-      } catch (ex: any) {
-        console.error(`Error parsing schema in ${file}: ${ex.message}`);
-      }
-    });
-  } else {
-    console.error(`Schema in ${file} is not an array`);
-  }
-}
-
-const factory = ts.factory;
-
 const createNamespaceModules = (
   mergedSchema: { [key: string]: any },
-  options: { ignoredNamespaces: string[] }
+  options: { ignoredNamespaces: string[] },
+  factory: ts.NodeFactory
 ) => {
   const statements: ts.Statement[] = [];
 
@@ -320,36 +256,7 @@ const createNamespaceModules = (
   return moduleBody;
 };
 
-const nsMessenger = factory.createModuleDeclaration(
-  [factory.createModifier(ts.SyntaxKind.DeclareKeyword)],
-  factory.createIdentifier("messenger"),
-  createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }),
-  ts.NodeFlags.Namespace
-);
-
-const source = ts.createSourceFile(
-  "../.out/messenger.d.ts",
-  "",
-  ts.ScriptTarget.Latest,
-  false,
-  ts.ScriptKind.TS
-);
-
-const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-const src = printer.printList(
-  ts.ListFormat.MultiLineBlockStatements,
-  factory.createNodeArray([
-    /* /// <reference lib="dom" /> */
-    bootstrapWindowVariables(),
-    ...bootstrapGlobalInterfaces(),
-    nsMessenger,
-  ]),
-  source
-);
-
-fs.writeFileSync(outfile, src, { flag: "w+" });
-
-function bootstrapWindowVariables(): ts.Statement {
+function bootstrapWindowVariables(factory: ts.NodeFactory): ts.Statement {
   return factory.createInterfaceDeclaration(
     undefined,
     factory.createIdentifier("Window"),
@@ -366,7 +273,7 @@ function bootstrapWindowVariables(): ts.Statement {
   );
 }
 
-function bootstrapGlobalInterfaces(): ts.Statement[] {
+function bootstrapGlobalInterfaces(factory: ts.NodeFactory): ts.Statement[] {
   return [
     factory.createInterfaceDeclaration(
       undefined,
@@ -460,3 +367,99 @@ function bootstrapGlobalInterfaces(): ts.Statement[] {
     ),
   ];
 }
+
+const generateTypingsFromSchema = (schemaDir: string, outfile: string) => {
+  const schemaFiles = fs.readdirSync(schemaDir);
+  const mergedSchema: WebExtensionSchemaMapping = {};
+
+  for (const file of schemaFiles) {
+    const filePath = path.join(schemaDir, file);
+    const schemaList = JSON.parse(fs.readFileSync(filePath, "utf8"));
+
+    if (Array.isArray(schemaList)) {
+      schemaList.forEach((schema) => {
+        try {
+          const {
+            events = [],
+            types = [],
+            functions = [],
+            namespace,
+            permissions = [],
+            properties = {},
+            description = "",
+          } = schema;
+          if (namespace) {
+            // console.log(`Merging schema for ${namespace}`);
+            if (mergedSchema[namespace]) {
+              mergedSchema[namespace].events =
+                mergedSchema[namespace].events.concat(events);
+              mergedSchema[namespace].types =
+                mergedSchema[namespace].types.concat(types);
+              mergedSchema[namespace].functions =
+                mergedSchema[namespace].functions.concat(functions);
+              mergedSchema[namespace].permissions =
+                mergedSchema[namespace].permissions.concat(permissions);
+              mergedSchema[namespace].properties =
+                mergedSchema[namespace].permissions.concat(properties);
+            } else {
+              mergedSchema[namespace] = {
+                description,
+                events,
+                types,
+                functions,
+                permissions,
+                properties,
+                sourceFile: file,
+              };
+            }
+          } else {
+            console.error(`Schema in ${file} does not have a namespace`);
+          }
+        } catch (ex: any) {
+          console.error(`Error parsing schema in ${file}: ${ex.message}`);
+        }
+      });
+    } else {
+      console.error(`Schema in ${file} is not an array`);
+    }
+  }
+
+  const factory = ts.factory;
+  const nsMessenger = factory.createModuleDeclaration(
+    [factory.createModifier(ts.SyntaxKind.DeclareKeyword)],
+    factory.createIdentifier("messenger"),
+    createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }, factory),
+    ts.NodeFlags.Namespace
+  );
+
+  const source = ts.createSourceFile(
+    "../.out/messenger.d.ts",
+    "",
+    ts.ScriptTarget.Latest,
+    false,
+    ts.ScriptKind.TS
+  );
+
+  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+  const src = printer.printList(
+    ts.ListFormat.MultiLineBlockStatements,
+    factory.createNodeArray([
+      /* /// <reference lib="dom" /> */
+      bootstrapWindowVariables(factory),
+      ...bootstrapGlobalInterfaces(factory),
+      nsMessenger,
+    ]),
+    source
+  );
+
+  fs.writeFileSync(outfile, src, { flag: "w+" });
+};
+
+const outfile = path.join(__dirname, "..", ".out/messenger.d.ts");
+const schemaDir = path.join(
+  __dirname,
+  "..",
+  ".schemas/webext-schemas/schema-files"
+);
+
+generateTypingsFromSchema(schemaDir, outfile);
