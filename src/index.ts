@@ -8,6 +8,7 @@ import {
   isFunctionType,
   isOptional,
   isReferenceType,
+  isUnsupported,
   isWithFunctionParameters,
   isWithId,
   isWithName,
@@ -109,6 +110,19 @@ const createTypingsForNamespace = (
   }
 
   for (const event of mergedSchema[namespace].events || []) {
+    if (isUnsupported(event)) {
+      console.warn(
+        `Warning: skipping unsupported event ${[
+          namespace,
+          isWithName(event) ? event.name : undefined,
+        ]
+          .filter(Boolean)
+          .join(".")}`
+      );
+
+      continue;
+    }
+
     let eventCallbackType = createSingleTyping(event, {
       currentNamespace: namespace,
       knownTypes: types,
@@ -201,7 +215,8 @@ const createTypingsForNamespace = (
 
       typeDeclarations.push(addJsDocAnnotation(event, _eventDeclaration));
     } else {
-      console.warn(`Error creating event typing for ${namespace}`);
+      const name = [namespace, event.name].join(".");
+      console.warn(`Error creating event typing for event ${name}`);
     }
   }
 

@@ -47,11 +47,29 @@ export const generateObjectType = (
           factory,
           context: "interface",
         });
+
+        if (isUnsupported(func)) {
+          console.warn(
+            `Warning: skipping unsupported function ${[
+              currentNamespace,
+              type.id,
+              func.name,
+            ]
+              .filter(Boolean)
+              .join(".")}`
+          );
+          return;
+        }
+
         if (singleTyping && ts.isMethodSignature(singleTyping)) {
           return singleTyping;
         }
 
-        console.log(`Not a function: ${func.name}`);
+        console.error(
+          `Error: not a function: ${[currentNamespace, type.id, func.name]
+            .filter(Boolean)
+            .join(".")}`
+        );
         return undefined;
       })
       .filter((item) => item !== undefined);
@@ -60,7 +78,6 @@ export const generateObjectType = (
   if (isWithProps(type)) {
     const props: PropertySignature[] = [];
     Object.entries(type.properties).forEach(([propName, subType]) => {
-      // console.log(`Create property signature: ${propName}, ${subType}`);
       const _type = createSingleTyping(subType, {
         currentNamespace,
         knownTypes,
