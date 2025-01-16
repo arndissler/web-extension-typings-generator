@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "description": "Simple typings generator for Thunderbird WebExtension schema",
   "main": "dist/index.js",
+  "bin": {
+    "mail-extension-typings": "dist/cli.js"
+  },
   "scripts": {
-    "start": "ts-node-esm src/index.ts"
+    "start": "ts-node-esm src/cli.ts",
+    "build": "tsc"
   },
   "author": "Arnd Issler <email@arndissler.net>",
   "license": "MPL-2.0",

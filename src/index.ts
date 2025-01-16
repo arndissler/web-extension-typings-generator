@@ -1,5 +1,5 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import ts from "typescript";
 
 import { createSingleTyping } from "./typeFactory";
@@ -368,13 +368,28 @@ function bootstrapGlobalInterfaces(factory: ts.NodeFactory): ts.Statement[] {
   ];
 }
 
-const generateTypingsFromSchema = (schemaDir: string, outfile: string) => {
-  const schemaFiles = fs.readdirSync(schemaDir);
+const generateTypingsFromSchema = async (
+  schemaDir: string,
+  outfile: string
+) => {
+  const schemaFiles = await fs.readdir(schemaDir, {});
   const mergedSchema: WebExtensionSchemaMapping = {};
 
   for (const file of schemaFiles) {
     const filePath = path.join(schemaDir, file);
-    const schemaList = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const [canRead, _] = await isFile(filePath);
+
+    if (!canRead) {
+      console.error(`Cannot read file ${filePath}`);
+      continue;
+    }
+
+    if (!file.endsWith(".json")) {
+      console.error(`Skipping non-json file ${file}`);
+      continue;
+    }
+
+    const schemaList = JSON.parse(await fs.readFile(filePath, "utf8"));
 
     if (Array.isArray(schemaList)) {
       schemaList.forEach((schema) => {
@@ -452,14 +467,67 @@ const generateTypingsFromSchema = (schemaDir: string, outfile: string) => {
     source
   );
 
-  fs.writeFileSync(outfile, src, { flag: "w+" });
+  await fs.writeFile(outfile, src, { flag: "w+" });
 };
 
-const outfile = path.join(__dirname, "..", ".out/messenger.d.ts");
-const schemaDir = path.join(
-  __dirname,
-  "..",
-  ".schemas/webext-schemas/schema-files"
-);
+const isFile = async (file: string) => {
+  try {
+    const stat = await fs.stat(file);
 
-generateTypingsFromSchema(schemaDir, outfile);
+    return [stat.isFile(), null];
+  } catch (error) {
+    return [null, error];
+  }
+};
+
+const canAccessDirectory = async (
+  directory: string,
+  flags: number = fs.constants.O_DIRECTORY
+) => {
+  try {
+    await fs.access(directory, flags);
+    return [directory, null];
+  } catch (error) {
+    console.error(`Error: cannot access directory: ${directory}`);
+    return [null, error];
+  }
+};
+
+const ensureDirectory = async (
+  dir: string,
+  flags: number = fs.constants.O_DIRECTORY
+) => {
+  try {
+    const [hasAccess, error] = await canAccessDirectory(dir, flags);
+    if (hasAccess) {
+      return [true, null];
+    }
+    await fs.mkdir(path.join(dir), { recursive: true });
+    return [true, null];
+  } catch (error) {
+    return [null, error];
+  }
+};
+
+export const createTypingsFile = async (
+  schemaDir: string,
+  outfile: string,
+  forceCreateDir: boolean
+) => {
+  try {
+    const outDir = path.dirname(outfile);
+
+    const [hasSchemaDirAccess, schemaDirError] = await (forceCreateDir
+      ? ensureDirectory(schemaDir, fs.constants.O_RDWR)
+      : canAccessDirectory(schemaDir));
+    const [hasOutDirAcess, outDirError] = await (forceCreateDir
+      ? ensureDirectory(outDir, fs.constants.O_RDWR)
+      : canAccessDirectory(outDir, fs.constants.O_RDWR));
+
+    if (hasSchemaDirAccess && hasOutDirAcess) {
+      await generateTypingsFromSchema(schemaDir, outfile);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+};
