@@ -36,6 +36,10 @@ export interface WithFunctions extends ObjectType {
   functions: FunctionType[];
 }
 
+export interface WithMaybeAsync extends FunctionType {
+  async: string | boolean;
+}
+
 export interface WithProps extends ObjectType {
   properties: { [key: string]: SingleType & WithOptional };
 }

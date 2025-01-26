@@ -1,6 +1,7 @@
 import ts, { isTypeNode } from "typescript";
 import {
   isAsyncFunctionType,
+  isMaybeAsyncFunctionType,
   isOptional,
   isWithFunctionParameters,
   isWithFunctionReturn,
@@ -21,7 +22,11 @@ export const generateFunctionType = (
 ) => {
   const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
 
-  const isAsync = isAsyncFunctionType(type) && type.async === true;
+  const isAsync =
+    (isAsyncFunctionType(type) && type.async === true) ||
+    (isMaybeAsyncFunctionType(type) &&
+      typeof type.async === "string" &&
+      type.async === "callback");
   const name = type.name;
 
   let params: SingleType[] = [];
@@ -87,35 +92,37 @@ export const generateFunctionType = (
     );
   }
 
+  const functionParams = params.map((param) => {
+    const derivedParamType = createSingleTyping(param as WebExtensionType, {
+      currentNamespace,
+      knownTypes,
+      schemaCatalog,
+      factory,
+      context: "inline",
+    });
+    const paramType =
+      derivedParamType && ts.isTypeNode(derivedParamType)
+        ? derivedParamType
+        : factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
+    const paramDeclaration = factory.createParameterDeclaration(
+      undefined,
+      undefined,
+      factory.createIdentifier(
+        isWithName(param) ? param.name : `param${params.indexOf(param)}`
+      ),
+      isOptional(param)
+        ? factory.createToken(ts.SyntaxKind.QuestionToken)
+        : undefined,
+      paramType,
+      undefined
+    );
+    return addJsDocAnnotation(param, paramDeclaration);
+  });
+
   if (context === "inline") {
     const lambdaFunctionEmpty = factory.createFunctionTypeNode(
       undefined,
-      params.map((param) => {
-        const derivedParamType = createSingleTyping(param as WebExtensionType, {
-          currentNamespace,
-          knownTypes,
-          schemaCatalog,
-          factory,
-          context: "inline",
-        });
-        const paramType =
-          derivedParamType && ts.isTypeNode(derivedParamType)
-            ? derivedParamType
-            : factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword);
-        const paramDeclaration = factory.createParameterDeclaration(
-          undefined,
-          undefined,
-          factory.createIdentifier(
-            isWithName(param) ? param.name : `param${params.indexOf(param)}`
-          ),
-          isOptional(param)
-            ? factory.createToken(ts.SyntaxKind.QuestionToken)
-            : undefined,
-          paramType,
-          undefined
-        );
-        return addJsDocAnnotation(param, paramDeclaration);
-      }),
+      functionParams,
       returnType
     );
     return lambdaFunctionEmpty;
@@ -130,7 +137,7 @@ export const generateFunctionType = (
         undefined,
         factory.createIdentifier(name),
         undefined,
-        [],
+        functionParams,
         returnType,
         undefined
       )

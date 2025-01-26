@@ -26,6 +26,7 @@ import {
   WithDeprecation,
   WithUnsupported,
   WithReturn,
+  WithMaybeAsync,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -115,6 +116,17 @@ export const isAsyncFunctionType = (
   type: WebExtensionType
 ): type is AsyncFunctionType => {
   return isFunctionType(type) && (type as AsyncFunctionType).async === true;
+};
+
+export const isMaybeAsyncFunctionType = (
+  type: WebExtensionType
+): type is WithMaybeAsync => {
+  return (
+    isFunctionType(type) &&
+    (type as WithMaybeAsync).async !== undefined &&
+    (typeof (type as WithMaybeAsync).async === "boolean" ||
+      typeof (type as WithMaybeAsync).async === "string")
+  );
 };
 
 export const isWithFunctionParameters = (
