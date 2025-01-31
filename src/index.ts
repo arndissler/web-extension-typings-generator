@@ -3,7 +3,7 @@ import * as path from "node:path";
 import ts from "typescript";
 
 import { createSingleTyping } from "./typeFactory";
-import { WebExtensionSchemaMapping } from "./typeFactory/types";
+import { SingleType, WebExtensionSchemaMapping } from "./typeFactory/types";
 import {
   isFunctionType,
   isOptional,
@@ -14,7 +14,7 @@ import {
   isWithName,
 } from "./typeFactory/guards";
 import { reservedWords } from "./reservedWords";
-import { addJsDocAnnotation } from "./utils";
+import { addJsDocAnnotation, hasNonTrailingOptionalParameters } from "./utils";
 
 const createTypingsForNamespace = (
   namespace: string,
@@ -33,50 +33,117 @@ const createTypingsForNamespace = (
     }
 
     if (isFunctionType(type) && isWithName(type)) {
-      const functionDeclaration = createSingleTyping(type, {
-        currentNamespace: namespace,
-        knownTypes: types,
-        schemaCatalog: mergedSchema,
-        factory,
-        context: "namespace",
-      });
+      // check if we have any optional parameters that are not trailing
+      const infixOptionalParameterPositions =
+        hasNonTrailingOptionalParameters(type);
+      const maxOptionalParameterCount = infixOptionalParameterPositions.length;
 
-      if (
-        functionDeclaration &&
-        ts.isFunctionDeclaration(functionDeclaration)
-      ) {
-        const functionName = functionDeclaration.name?.text;
-        if (functionName && reservedWords.includes(functionName)) {
-          const functionAliasName = `__${functionName}`;
-          let originalFunction = factory.updateFunctionDeclaration(
-            functionDeclaration,
-            [],
-            functionDeclaration.asteriskToken,
-            factory.createIdentifier(functionAliasName),
-            functionDeclaration.typeParameters,
-            functionDeclaration.parameters,
-            functionDeclaration.type,
-            undefined
-          );
+      const maybeOverloadedParameters = [];
 
-          let exportedFunctionDeclaration = factory.createExportDeclaration(
-            undefined,
-            false,
-            factory.createNamedExports([
-              factory.createExportSpecifier(
-                false,
-                factory.createIdentifier(functionAliasName),
-                factory.createIdentifier(functionName)
-              ),
-            ]),
-            undefined,
-            undefined
-          );
+      if (isWithFunctionParameters(type)) {
+        // use the original parameter list as the first option
+        maybeOverloadedParameters.push(type.parameters);
 
-          typeDeclarations.push(originalFunction);
-          typeDeclarations.push(exportedFunctionDeclaration);
-        } else {
-          typeDeclarations.push(functionDeclaration);
+        if (maxOptionalParameterCount > 0) {
+          // if we have optional parameters, we need to create all possible permutations:
+          //  1) when we have n optional parameters, we have 2^n permutations
+          //  2) we need to create a counter from 0 to 2^n - 1, for each number we
+          //     create a binary representation, e.g. [ 0, 1, 1, 0] for four optional parameters
+          //     0 represents a parameter that should be omitted, 1 for an included parameter
+          //  3) we iterate over the binary representation and take over all parameters that
+          //     should be omitted
+          //  4) we finally iterate over all parameters from the original parameter list and skip
+          //     all parameters that should be omitted
+          //  5) with the new parameter list we create a new function declaration
+          //     and add it to the implementation list
+          for (
+            let i = 0;
+            i < Number(Math.pow(2, maxOptionalParameterCount) - 1);
+            i++
+          ) {
+            const binaryCounter = (
+              Array(maxOptionalParameterCount).join("0") + i.toString(2)
+            )
+              .slice(-maxOptionalParameterCount)
+              .split("")
+              .map(Number);
+            // create a binary representation (e.g. [0, 1, 1, 0]) and map it to the parameter positions
+            let removeParamPositions = binaryCounter.reduce<number[]>(
+              (acc, position, index) => {
+                if (position === 0) {
+                  acc.push(infixOptionalParameterPositions[index]);
+                }
+                return acc;
+              },
+              []
+            );
+
+            const preparedParameterList = type.parameters.reduce<SingleType[]>(
+              (acc, item, index) => {
+                if (!removeParamPositions.includes(index)) {
+                  acc.push(item);
+                }
+                return acc;
+              },
+              []
+            );
+
+            maybeOverloadedParameters.push(preparedParameterList);
+          }
+        }
+      }
+
+      // now iterate over all possible parameter lists and create a function declaration for each
+      for (const parameters of maybeOverloadedParameters) {
+        const preparedType = {
+          ...type,
+          parameters: parameters.map((item) => ({ ...item, optional: false })),
+        };
+        const functionDeclaration = createSingleTyping(preparedType, {
+          currentNamespace: namespace,
+          knownTypes: types,
+          schemaCatalog: mergedSchema,
+          factory,
+          context: "namespace",
+        });
+
+        if (
+          functionDeclaration &&
+          ts.isFunctionDeclaration(functionDeclaration)
+        ) {
+          const functionName = functionDeclaration.name?.text;
+          if (functionName && reservedWords.includes(functionName)) {
+            const functionAliasName = `__${functionName}`;
+            let originalFunction = factory.updateFunctionDeclaration(
+              functionDeclaration,
+              [],
+              functionDeclaration.asteriskToken,
+              factory.createIdentifier(functionAliasName),
+              functionDeclaration.typeParameters,
+              functionDeclaration.parameters,
+              functionDeclaration.type,
+              undefined
+            );
+
+            let exportedFunctionDeclaration = factory.createExportDeclaration(
+              undefined,
+              false,
+              factory.createNamedExports([
+                factory.createExportSpecifier(
+                  false,
+                  factory.createIdentifier(functionAliasName),
+                  factory.createIdentifier(functionName)
+                ),
+              ]),
+              undefined,
+              undefined
+            );
+
+            typeDeclarations.push(originalFunction);
+            typeDeclarations.push(exportedFunctionDeclaration);
+          } else {
+            typeDeclarations.push(functionDeclaration);
+          }
         }
       }
     } else if (isWithId(type) && type.id) {

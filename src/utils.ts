@@ -1,6 +1,15 @@
 import ts from "typescript";
-import { WithDescription } from "./typeFactory/types";
-import { isWithDeprecation, isWithDescription } from "./typeFactory/guards";
+import {
+  FunctionType,
+  WithDescription,
+  WithOptional,
+} from "./typeFactory/types";
+import {
+  isOptional,
+  isWithDeprecation,
+  isWithDescription,
+  isWithFunctionParameters,
+} from "./typeFactory/guards";
 
 export enum IdentifierTreatment {
   invalid = 0,
@@ -82,4 +91,25 @@ export const sanitizeDescription = (description: string) => {
       /<a href=['"]?(https:\/\/[a-zA-Z0-9\.\/\-_#]+)['"]?[^>]*>([^<]*)<\/a>/g,
       "{@link $1|$2}"
     );
+};
+
+export const hasNonTrailingOptionalParameters = (type: FunctionType) => {
+  const params = isWithFunctionParameters(type) ? type.parameters || [] : [];
+  const result: Array<number> = [];
+
+  params.reduce((acc, param, index, source) => {
+    if (
+      isOptional(param) &&
+      source.findIndex(
+        (x, idx) =>
+          typeof (x as unknown as WithOptional).optional === "undefined" &&
+          idx > index
+      ) >= 0
+    ) {
+      acc.push(index);
+    }
+    return acc;
+  }, result);
+
+  return result;
 };
