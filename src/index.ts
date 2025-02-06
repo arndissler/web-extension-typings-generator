@@ -507,10 +507,49 @@ const generateTypingsFromSchema = async (
   }
 
   const factory = ts.factory;
+  const declaredNamespaces = createNamespaceModules(
+    mergedSchema,
+    { ignoredNamespaces: [] },
+    factory
+  );
+
+  const reExports = declaredNamespaces.statements.reduce<{
+    [key: string]: ts.ImportEqualsDeclaration;
+  }>((acc, node) => {
+    if (
+      node.kind === ts.SyntaxKind.ModuleDeclaration &&
+      ts.isModuleDeclaration(node)
+    ) {
+      const name = node.name.text;
+      const normalizedName = name.substring(0, `${name}.`.indexOf("."));
+
+      if (!acc[normalizedName]) {
+        acc[normalizedName] = factory.createImportEqualsDeclaration(
+          [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+          false,
+          factory.createIdentifier(normalizedName),
+          factory.createQualifiedName(
+            factory.createIdentifier("messenger"),
+            factory.createIdentifier(normalizedName)
+          )
+        );
+      }
+    }
+
+    return acc;
+  }, {});
+
   const nsMessenger = factory.createModuleDeclaration(
     [factory.createModifier(ts.SyntaxKind.DeclareKeyword)],
     factory.createIdentifier("messenger"),
-    createNamespaceModules(mergedSchema, { ignoredNamespaces: [] }, factory),
+    declaredNamespaces,
+    ts.NodeFlags.Namespace
+  );
+
+  const nsBrowser = factory.createModuleDeclaration(
+    [factory.createModifier(ts.SyntaxKind.DeclareKeyword)],
+    factory.createIdentifier("browser"),
+    factory.createModuleBlock(Object.values(reExports)),
     ts.NodeFlags.Namespace
   );
 
@@ -530,6 +569,7 @@ const generateTypingsFromSchema = async (
       bootstrapWindowVariables(factory),
       ...bootstrapGlobalInterfaces(factory),
       nsMessenger,
+      nsBrowser,
     ]),
     source
   );
