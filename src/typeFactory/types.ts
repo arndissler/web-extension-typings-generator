@@ -121,6 +121,8 @@ export type StringType = SimpleStringType | EnumStringType;
 
 export type NullType = { type: "null" };
 
+export type StaticValueType = { value: string | number | boolean };
+
 export type WebExtensionType =
   | AnyType
   | ArrayType
@@ -133,6 +135,7 @@ export type WebExtensionType =
   | ObjectType
   | ReferenceType
   | SingleType
+  | StaticValueType
   | StringType
   | UnionType;
 

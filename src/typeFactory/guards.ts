@@ -27,6 +27,7 @@ import {
   WithUnsupported,
   WithReturn,
   WithMaybeAsync,
+  StaticValueType,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -171,4 +172,10 @@ export const isNumberType = (type: WebExtensionType): type is NumberType => {
 
 export const isNullType = (type: WebExtensionType): type is NullType => {
   return (type as NullType).type === "null";
+};
+
+export const isStaticValueType = (
+  type: WebExtensionType
+): type is StaticValueType => {
+  return (type as StaticValueType).value !== undefined;
 };

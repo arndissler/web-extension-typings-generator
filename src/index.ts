@@ -8,6 +8,7 @@ import {
   isFunctionType,
   isOptional,
   isReferenceType,
+  isStaticValueType,
   isUnsupported,
   isWithFunctionParameters,
   isWithId,
@@ -285,6 +286,31 @@ const createTypingsForNamespace = (
       const name = [namespace, event.name].join(".");
       console.warn(`Error creating event typing for event ${name}`);
     }
+  }
+
+  if (mergedSchema[namespace].properties) {
+    Object.entries(mergedSchema[namespace].properties).forEach(
+      ([propName, propValue]) => {
+        if (isStaticValueType(propValue)) {
+          const propDeclaration = createSingleTyping(
+            { ...propValue, name: propName },
+            {
+              currentNamespace: namespace,
+              knownTypes: types,
+              schemaCatalog: mergedSchema,
+              factory,
+              context: "namespace",
+            }
+          );
+
+          if (propDeclaration && ts.isVariableStatement(propDeclaration)) {
+            typeDeclarations.push(
+              addJsDocAnnotation(propValue, propDeclaration)
+            );
+          }
+        }
+      }
+    );
   }
 
   return typeDeclarations;

@@ -20,16 +20,18 @@ import {
   isAnyType,
   isWithFunctionParameters,
   isWithName,
+  isStaticValueType,
 } from "./guards";
 import { generateAnyType } from "./generateAny";
 import { generateArrayType } from "./generateArray";
-import { generateFunctionType } from "./generateFunction";
-import { generateUnionType } from "./generateUnion";
-import { generateReferenceType } from "./generateReference";
-import { generateStringType } from "./generateString";
 import { generateBooleanType } from "./generateBoolean";
+import { generateFunctionType } from "./generateFunction";
 import { generateNumberType } from "./generateNumber";
 import { generateObjectType } from "./generateObject";
+import { generateReferenceType } from "./generateReference";
+import { generateStaticValueType } from "./generateStaticValueType";
+import { generateStringType } from "./generateString";
+import { generateUnionType } from "./generateUnion";
 
 type WebExtensionTypeTransformer = (
   type: WebExtensionType,
@@ -146,6 +148,7 @@ export const createSingleTyping = (
   | ts.TypeLiteralNode
   | ts.KeywordTypeNode
   | ts.UnionTypeNode
+  | ts.VariableStatement
   | ts.TypeAliasDeclaration => {
   const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
   let theType = type;
@@ -203,6 +206,10 @@ export const createSingleTyping = (
     // check if it is a number type
     else if (isIntegerType(theType) || isNumberType(theType)) {
       return generateNumberType(theType as NumberType, ctx);
+    }
+    // check if there is a static value
+    else if (isStaticValueType(theType)) {
+      return generateStaticValueType(theType, ctx);
     }
   } catch (ex: any) {
     console.warn(
