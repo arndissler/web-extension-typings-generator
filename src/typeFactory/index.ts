@@ -175,6 +175,10 @@ export const createSingleTyping = (
     if (isAnyType(theType)) {
       return generateAnyType(theType, ctx);
     }
+    // check if there is a static value
+    else if (isStaticValueType(theType)) {
+      return generateStaticValueType(theType, ctx);
+    }
     // resolve a function type
     else if (isFunctionType(theType)) {
       return generateFunctionType(theType, ctx);
@@ -206,10 +210,6 @@ export const createSingleTyping = (
     // check if it is a number type
     else if (isIntegerType(theType) || isNumberType(theType)) {
       return generateNumberType(theType as NumberType, ctx);
-    }
-    // check if there is a static value
-    else if (isStaticValueType(theType)) {
-      return generateStaticValueType(theType, ctx);
     }
   } catch (ex: any) {
     console.warn(

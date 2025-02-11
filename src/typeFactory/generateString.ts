@@ -1,5 +1,5 @@
 import { StringType, TypeGeneratorContext } from "./types";
-import { isEnumStringType } from "./guards";
+import { isEnumStringType, isWithDescription, isWithName } from "./guards";
 import ts from "typescript";
 import { addJsDocAnnotation } from "../utils";
 
@@ -12,9 +12,28 @@ export const generateStringType = (
   // string enum type creates a string literal union type
   if (isEnumStringType(type)) {
     const _type = factory.createUnionTypeNode(
-      type.enum.map((value) =>
-        factory.createLiteralTypeNode(factory.createStringLiteral(value))
-      )
+      type.enum
+        .map((value) => {
+          if (typeof value === "string") {
+            return factory.createLiteralTypeNode(
+              factory.createStringLiteral(value)
+            );
+          }
+
+          if (isWithName(value)) {
+            let result = factory.createLiteralTypeNode(
+              factory.createStringLiteral(value.name)
+            );
+            if (isWithDescription(value)) {
+              result = addJsDocAnnotation(value, result);
+            }
+
+            return result;
+          }
+
+          return null;
+        })
+        .filter((item) => item !== null)
     );
 
     if (context === "inline") {

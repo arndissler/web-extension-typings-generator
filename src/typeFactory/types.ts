@@ -63,7 +63,7 @@ export interface ObjectType extends WithId, WithDescription {
 }
 
 export interface EnumType extends WithId, WithDescription {
-  enum: string[];
+  enum: string[] | (WithName & WithDescription)[];
 }
 
 export interface ArrayType extends WithId, WithDescription {
