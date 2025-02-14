@@ -255,6 +255,25 @@ export const generateObjectType = (
       return factory.createIntersectionTypeNode([maybeObject, additionalType]);
     }
 
+    if (_maybeProps.length === 0) {
+      // if there are no properties defined, return an indexable object
+      return factory.createTypeLiteralNode([
+        factory.createIndexSignature(
+          undefined,
+          [
+            factory.createParameterDeclaration(
+              undefined,
+              undefined,
+              factory.createIdentifier("key"),
+              undefined,
+              factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+              undefined
+            ),
+          ],
+          factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword)
+        ),
+      ]);
+    }
     return maybeObject;
   }
 

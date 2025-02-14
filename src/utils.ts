@@ -113,3 +113,6 @@ export const hasNonTrailingOptionalParameters = (type: FunctionType) => {
 
   return result;
 };
+
+export const pascalCase = (...words: string[]) =>
+  words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join("");

@@ -6,6 +6,7 @@ import { createSingleTyping } from "./typeFactory";
 import { SingleType, WebExtensionSchemaMapping } from "./typeFactory/types";
 import {
   isFunctionType,
+  isObjectType,
   isOptional,
   isReferenceType,
   isStaticValueType,
@@ -15,7 +16,11 @@ import {
   isWithName,
 } from "./typeFactory/guards";
 import { reservedWords } from "./reservedWords";
-import { addJsDocAnnotation, hasNonTrailingOptionalParameters } from "./utils";
+import {
+  addJsDocAnnotation,
+  hasNonTrailingOptionalParameters,
+  pascalCase,
+} from "./utils";
 
 const createTypingsForNamespace = (
   namespace: string,
@@ -42,8 +47,48 @@ const createTypingsForNamespace = (
       const maybeOverloadedParameters = [];
 
       if (isWithFunctionParameters(type)) {
+        let maybePatchedParameters = type.parameters;
+
+        // extract interfaces for the function parameters (if any)
+        if (type.parameters.length > 0) {
+          maybePatchedParameters = type.parameters.map((param) => {
+            if (isObjectType(param)) {
+              const exportedTypeName = pascalCase(
+                type.name,
+                isWithName(param) ? param.name : param.id
+              );
+              const patchedParameterType = { ...param, id: exportedTypeName };
+              const patchedParameter = createSingleTyping(
+                patchedParameterType,
+                {
+                  currentNamespace: namespace,
+                  knownTypes: types,
+                  schemaCatalog: mergedSchema,
+                  factory,
+                  context: "namespace",
+                }
+              );
+              if (
+                patchedParameter &&
+                ts.isInterfaceDeclaration(patchedParameter)
+              ) {
+                typeDeclarations.push(patchedParameter);
+
+                param = {
+                  $ref: exportedTypeName,
+                  description: param.description,
+                  optional: isOptional(param) ? param.optional : undefined,
+                  name: isWithName(param) ? param.name : undefined,
+                } as unknown as SingleType;
+              }
+            }
+
+            return param;
+          });
+        }
+
         // use the original parameter list as the first option
-        maybeOverloadedParameters.push(type.parameters);
+        maybeOverloadedParameters.push(maybePatchedParameters);
 
         if (maxOptionalParameterCount > 0) {
           // if we have optional parameters, we need to create all possible permutations:
@@ -79,15 +124,14 @@ const createTypingsForNamespace = (
               []
             );
 
-            const preparedParameterList = type.parameters.reduce<SingleType[]>(
-              (acc, item, index) => {
-                if (!removeParamPositions.includes(index)) {
-                  acc.push(item);
-                }
-                return acc;
-              },
-              []
-            );
+            const preparedParameterList = maybePatchedParameters.reduce<
+              SingleType[]
+            >((acc, item, index) => {
+              if (!removeParamPositions.includes(index)) {
+                acc.push(item);
+              }
+              return acc;
+            }, []);
 
             maybeOverloadedParameters.push(preparedParameterList);
           }
