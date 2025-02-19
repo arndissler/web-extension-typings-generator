@@ -128,7 +128,14 @@ const createTypingsForNamespace = (
               SingleType[]
             >((acc, item, index) => {
               if (!removeParamPositions.includes(index)) {
-                acc.push(item);
+                let isOptionalParam = isOptional(item);
+                if (infixOptionalParameterPositions.includes(index)) {
+                  isOptionalParam = false;
+                }
+                acc.push({
+                  ...item,
+                  optional: isOptionalParam,
+                } as unknown as SingleType);
               }
               return acc;
             }, []);
@@ -139,12 +146,61 @@ const createTypingsForNamespace = (
       }
 
       // now iterate over all possible parameter lists and create a function declaration for each
-      for (const parameters of maybeOverloadedParameters) {
-        const preparedType = {
-          ...type,
-          parameters: parameters.map((item) => ({ ...item, optional: false })),
-        };
-        const functionDeclaration = createSingleTyping(preparedType, {
+      if (maybeOverloadedParameters.length > 0) {
+        for (const parameters of maybeOverloadedParameters) {
+          const preparedType = {
+            ...type,
+            parameters,
+          };
+          const functionDeclaration = createSingleTyping(preparedType, {
+            currentNamespace: namespace,
+            knownTypes: types,
+            schemaCatalog: mergedSchema,
+            factory,
+            context: "namespace",
+          });
+
+          if (
+            functionDeclaration &&
+            ts.isFunctionDeclaration(functionDeclaration)
+          ) {
+            const functionName = functionDeclaration.name?.text;
+            if (functionName && reservedWords.includes(functionName)) {
+              const functionAliasName = `__${functionName}`;
+              let originalFunction = factory.updateFunctionDeclaration(
+                functionDeclaration,
+                [],
+                functionDeclaration.asteriskToken,
+                factory.createIdentifier(functionAliasName),
+                functionDeclaration.typeParameters,
+                functionDeclaration.parameters,
+                functionDeclaration.type,
+                undefined
+              );
+
+              let exportedFunctionDeclaration = factory.createExportDeclaration(
+                undefined,
+                false,
+                factory.createNamedExports([
+                  factory.createExportSpecifier(
+                    false,
+                    factory.createIdentifier(functionAliasName),
+                    factory.createIdentifier(functionName)
+                  ),
+                ]),
+                undefined,
+                undefined
+              );
+
+              typeDeclarations.push(originalFunction);
+              typeDeclarations.push(exportedFunctionDeclaration);
+            } else {
+              typeDeclarations.push(functionDeclaration);
+            }
+          }
+        }
+      } else {
+        const functionDeclaration = createSingleTyping(type, {
           currentNamespace: namespace,
           knownTypes: types,
           schemaCatalog: mergedSchema,
@@ -156,39 +212,7 @@ const createTypingsForNamespace = (
           functionDeclaration &&
           ts.isFunctionDeclaration(functionDeclaration)
         ) {
-          const functionName = functionDeclaration.name?.text;
-          if (functionName && reservedWords.includes(functionName)) {
-            const functionAliasName = `__${functionName}`;
-            let originalFunction = factory.updateFunctionDeclaration(
-              functionDeclaration,
-              [],
-              functionDeclaration.asteriskToken,
-              factory.createIdentifier(functionAliasName),
-              functionDeclaration.typeParameters,
-              functionDeclaration.parameters,
-              functionDeclaration.type,
-              undefined
-            );
-
-            let exportedFunctionDeclaration = factory.createExportDeclaration(
-              undefined,
-              false,
-              factory.createNamedExports([
-                factory.createExportSpecifier(
-                  false,
-                  factory.createIdentifier(functionAliasName),
-                  factory.createIdentifier(functionName)
-                ),
-              ]),
-              undefined,
-              undefined
-            );
-
-            typeDeclarations.push(originalFunction);
-            typeDeclarations.push(exportedFunctionDeclaration);
-          } else {
-            typeDeclarations.push(functionDeclaration);
-          }
+          typeDeclarations.push(functionDeclaration);
         }
       }
     } else if (isWithId(type) && type.id) {
