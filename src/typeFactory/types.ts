@@ -88,6 +88,10 @@ export interface WithFunctionParameters extends FunctionType {
   parameters: SingleType[];
 }
 
+export interface WithExtraParameters extends FunctionType {
+  extraParameters: SingleType[];
+}
+
 export interface WithReturn extends FunctionType {
   returns: SingleType;
 }

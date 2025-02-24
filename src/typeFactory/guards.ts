@@ -28,6 +28,7 @@ import {
   WithReturn,
   WithMaybeAsync,
   StaticValueType,
+  WithExtraParameters,
 } from "./types";
 
 export const isWithId = (type: any): type is WithId => {
@@ -140,6 +141,16 @@ export const isWithFunctionParameters = (
     (type as WithFunctionParameters).parameters !== undefined &&
     Array.isArray((type as WithFunctionParameters).parameters) &&
     (type as WithFunctionParameters).parameters.length > 0
+  );
+};
+
+export const isWithExtraParameters = (
+  type: WebExtensionType
+): type is WithExtraParameters => {
+  return (
+    (type as WithExtraParameters).extraParameters !== undefined &&
+    Array.isArray((type as WithExtraParameters).extraParameters) &&
+    (type as WithExtraParameters).extraParameters.length > 0
   );
 };
 

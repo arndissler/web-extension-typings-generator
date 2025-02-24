@@ -11,6 +11,7 @@ import {
   isReferenceType,
   isStaticValueType,
   isUnsupported,
+  isWithExtraParameters,
   isWithFunctionParameters,
   isWithId,
   isWithName,
@@ -331,7 +332,7 @@ const createTypingsForNamespace = (
         }
       }
 
-      const _eventDeclaration = factory.createVariableStatement(
+      let _eventDeclaration = factory.createVariableStatement(
         [factory.createToken(ts.SyntaxKind.ExportKeyword)],
         factory.createVariableDeclarationList(
           [
@@ -348,6 +349,107 @@ const createTypingsForNamespace = (
           ts.NodeFlags.Const
         )
       );
+
+      if (isWithExtraParameters(event)) {
+        const extraParamTypes = event.extraParameters.map((param) => {
+          const paramType = createSingleTyping(param, {
+            currentNamespace: namespace,
+            knownTypes: types,
+            schemaCatalog: mergedSchema,
+            factory,
+            context: "inline",
+          });
+
+          return factory.createParameterDeclaration(
+            undefined,
+            undefined,
+            factory.createIdentifier(isWithName(param) ? param.name : param.id),
+            isOptional(param)
+              ? factory.createToken(ts.SyntaxKind.QuestionToken)
+              : undefined,
+            paramType && ts.isTypeNode(paramType)
+              ? paramType
+              : factory.createKeywordTypeNode(ts.SyntaxKind.AnyKeyword),
+            undefined
+          );
+        });
+
+        _eventDeclaration = factory.createVariableStatement(
+          [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+          factory.createVariableDeclarationList(
+            [
+              factory.createVariableDeclaration(
+                factory.createIdentifier(event.name),
+                undefined,
+                factory.createTypeLiteralNode([
+                  factory.createPropertySignature(
+                    undefined,
+                    factory.createIdentifier("addListener"),
+                    undefined,
+                    factory.createFunctionTypeNode(
+                      undefined,
+                      [
+                        factory.createParameterDeclaration(
+                          undefined,
+                          undefined,
+                          factory.createIdentifier("callback"),
+                          undefined,
+                          eventCallbackType,
+                          undefined
+                        ),
+                        ...extraParamTypes,
+                      ],
+                      factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+                    )
+                  ),
+                  factory.createPropertySignature(
+                    undefined,
+                    factory.createIdentifier("removeListener"),
+                    undefined,
+                    factory.createFunctionTypeNode(
+                      undefined,
+                      [
+                        factory.createParameterDeclaration(
+                          undefined,
+                          undefined,
+                          factory.createIdentifier("callback"),
+                          undefined,
+                          eventCallbackType,
+                          undefined
+                        ),
+                      ],
+                      factory.createKeywordTypeNode(ts.SyntaxKind.VoidKeyword)
+                    )
+                  ),
+                  factory.createPropertySignature(
+                    undefined,
+                    factory.createIdentifier("hasListener"),
+                    undefined,
+                    factory.createFunctionTypeNode(
+                      undefined,
+                      [
+                        factory.createParameterDeclaration(
+                          undefined,
+                          undefined,
+                          factory.createIdentifier("callback"),
+                          undefined,
+                          eventCallbackType,
+                          undefined
+                        ),
+                      ],
+                      factory.createKeywordTypeNode(
+                        ts.SyntaxKind.BooleanKeyword
+                      )
+                    )
+                  ),
+                ]),
+                undefined
+              ),
+            ],
+            ts.NodeFlags.Const
+          )
+        );
+      }
 
       typeDeclarations.push(addJsDocAnnotation(event, _eventDeclaration));
     } else {
