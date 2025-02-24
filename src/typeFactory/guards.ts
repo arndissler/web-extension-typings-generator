@@ -57,7 +57,10 @@ export const isUnsupported = (type: any): type is WithUnsupported => {
 };
 
 export const isOptional = (type: any): type is WithOptional => {
-  return (type as WithOptional).optional === true;
+  return (
+    (type as WithOptional).optional === true ||
+    (type as WithOptional).optional === "omit-key-if-missing"
+  );
 };
 
 export const isBooleanType = (type: WebExtensionType): type is BooleanType => {

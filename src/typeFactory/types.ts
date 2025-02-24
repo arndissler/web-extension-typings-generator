@@ -17,7 +17,7 @@ export interface WithId {
 }
 
 export interface WithOptional {
-  optional: boolean;
+  optional: boolean | "omit-key-if-missing";
 }
 
 export interface WithName {
