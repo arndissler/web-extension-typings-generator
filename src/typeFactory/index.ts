@@ -225,7 +225,9 @@ export const createSingleTyping = (
     `Fatal: failed to create typing for ${
       isWithId(theType)
         ? theType.id
-        : `unknown (maybe: ${JSON.stringify(theType)})`
+        : `unknown (maybe: ${JSON.stringify(
+            theType
+          )}) in namespace ${currentNamespace}`
     }`
   );
 

@@ -5,11 +5,17 @@ import ts from "typescript";
 import { createSingleTyping } from "./typeFactory";
 import { SingleType, WebExtensionSchemaMapping } from "./typeFactory/types";
 import {
+  isArrayType,
+  isBooleanType,
+  isEnumStringType,
   isFunctionType,
+  isIntegerType,
+  isNumberType,
   isObjectType,
   isOptional,
   isReferenceType,
   isStaticValueType,
+  isStringType,
   isUnsupported,
   isWithExtraParameters,
   isWithFunctionParameters,
@@ -88,8 +94,16 @@ const createTypingsForNamespace = (
           });
         }
 
-        // use the original parameter list as the first option
-        maybeOverloadedParameters.push(maybePatchedParameters);
+        // use the original parameter list as the first option, when we have no infix optional parameters
+        if (maxOptionalParameterCount > 0) {
+          maybeOverloadedParameters.push(
+            maybePatchedParameters.map((item) =>
+              isOptional(item) ? { ...item, optional: false } : item
+            )
+          );
+        } else {
+          maybeOverloadedParameters.push(maybePatchedParameters);
+        }
 
         if (maxOptionalParameterCount > 0) {
           // if we have optional parameters, we need to create all possible permutations:
@@ -461,9 +475,19 @@ const createTypingsForNamespace = (
   if (mergedSchema[namespace].properties) {
     Object.entries(mergedSchema[namespace].properties).forEach(
       ([propName, propValue]) => {
-        if (isStaticValueType(propValue)) {
+        if (
+          isArrayType(propValue) ||
+          isBooleanType(propValue) ||
+          isEnumStringType(propValue) ||
+          isIntegerType(propValue) ||
+          isNumberType(propValue) ||
+          isObjectType(propValue) ||
+          isReferenceType(propValue) ||
+          isStaticValueType(propValue) ||
+          isStringType(propValue)
+        ) {
           const propDeclaration = createSingleTyping(
-            { ...propValue, name: propName },
+            { ...propValue, id: propName } as SingleType,
             {
               currentNamespace: namespace,
               knownTypes: types,

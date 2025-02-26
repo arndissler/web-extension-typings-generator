@@ -1,5 +1,7 @@
 import { ReferenceType, TypeGeneratorContext } from "./types";
-import { isWithId } from "./guards";
+import { isWithId, isWithName } from "./guards";
+import { addJsDocAnnotation } from "../utils";
+import ts from "typescript";
 
 export const generateReferenceType = (
   type: ReferenceType,
@@ -29,14 +31,32 @@ export const generateReferenceType = (
 
   if (context === "inline") {
     return referenceType;
-  }
-
-  if (context === "namespace" || context === "interface") {
-    return factory.createPropertySignature(
-      undefined,
-      factory.createIdentifier(type.id),
-      undefined,
-      referenceType
+  } else if (context === "namespace") {
+    const identifier = isWithName(type) ? type.name : type.id;
+    return factory.createVariableStatement(
+      [factory.createToken(ts.SyntaxKind.ExportKeyword)],
+      factory.createVariableDeclarationList(
+        [
+          factory.createVariableDeclaration(
+            factory.createIdentifier(identifier),
+            undefined,
+            referenceType,
+            undefined
+          ),
+        ],
+        ts.NodeFlags.Const
+      )
+    );
+  } else if (context === "interface") {
+    const identifier = isWithName(type) ? type.name : type.id;
+    return addJsDocAnnotation(
+      type,
+      factory.createPropertySignature(
+        undefined,
+        factory.createIdentifier(identifier),
+        undefined,
+        referenceType
+      )
     );
   }
 
