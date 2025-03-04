@@ -2,6 +2,7 @@ import ts from "typescript";
 import { TypeGeneratorContext, UnionType } from "./types";
 import { addJsDocAnnotation } from "../utils";
 import { createSingleTyping } from "./index";
+import { isWithId } from "./guards";
 
 export const generateUnionType = (
   type: UnionType,
@@ -28,6 +29,10 @@ export const generateUnionType = (
   }
 
   if (context === "namespace" || context === "interface") {
+    if (!isWithId(type)) {
+      throw new Error("Union type must have an id");
+    }
+
     return addJsDocAnnotation(
       type,
       factory.createTypeAliasDeclaration(

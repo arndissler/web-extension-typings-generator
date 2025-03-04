@@ -152,7 +152,7 @@ export const generateFunctionType = (
         factory.createIdentifier(name),
         undefined,
         undefined,
-        [],
+        functionParams,
         returnType
       )
     );

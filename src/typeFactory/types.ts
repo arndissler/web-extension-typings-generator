@@ -107,7 +107,7 @@ export interface SingleType extends WithId, WithDescription {
     | "null";
 }
 
-export interface UnionType extends WithId, WithDescription {
+export interface UnionType extends WithDescription {
   choices: WebExtensionType[];
 }
 
