@@ -17,5 +17,19 @@
   },
   "devDependencies": {
     "ts-node": "^10.9.2"
-  }
+  },
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/arndissler"
+    },
+    {
+      "type": "patreon",
+      "url": "https://www.patreon.com/arndissler/about"
+    },
+    {
+      "type": "paypal",
+      "url": "https://www.paypal.com/donate?hosted_button_id=F4C4A93H2KFYA"
+    }
+  ]
 }
