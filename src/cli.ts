@@ -43,7 +43,7 @@ const main = async () => {
     console.log(
       `Generate typings file from web extension schema files.
 
-Usage: generate-typings --schemaDir <dir> --outfile <file>
+Usage: generate-web-extension-typings --schemaDir <dir> --outfile <file>
 
   --schemaDir <dir>    The directory containing the schema files (*.json)
   --outfile <file>     The output file to write the typings to

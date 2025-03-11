@@ -4,7 +4,7 @@
   "description": "Simple typings generator for Thunderbird WebExtension schema",
   "main": "dist/index.js",
   "bin": {
-    "mail-extension-typings": "dist/cli.js"
+    "generate-web-extension-typings": "dist/cli.js"
   },
   "scripts": {
     "start": "ts-node-esm src/cli.ts",
