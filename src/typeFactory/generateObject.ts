@@ -28,7 +28,14 @@ export const generateObjectType = (
   type: ObjectType,
   ctx: TypeGeneratorContext
 ) => {
-  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  const {
+    currentNamespace,
+    knownTypes,
+    alreadyDefinedTypes,
+    schemaCatalog,
+    context,
+    factory,
+  } = ctx;
 
   let _type = undefined;
   let objectDefinition = {
@@ -49,6 +56,7 @@ export const generateObjectType = (
         const singleTyping = createSingleTyping(func, {
           currentNamespace,
           knownTypes,
+          alreadyDefinedTypes,
           schemaCatalog,
           factory,
           context: "interface",
@@ -87,6 +95,7 @@ export const generateObjectType = (
       const _type = createSingleTyping(subType, {
         currentNamespace,
         knownTypes,
+        alreadyDefinedTypes,
         schemaCatalog,
         factory,
         context: "inline",
@@ -133,6 +142,7 @@ export const generateObjectType = (
       const propType = createSingleTyping(value, {
         currentNamespace,
         knownTypes,
+        alreadyDefinedTypes,
         schemaCatalog,
         factory,
         context: "inline",
@@ -195,6 +205,7 @@ export const generateObjectType = (
       const propType = createSingleTyping(type.additionalProperties, {
         currentNamespace,
         knownTypes,
+        alreadyDefinedTypes,
         schemaCatalog,
         factory,
         context: "inline",

@@ -14,7 +14,14 @@ export const generateUnionType = (
   type: UnionType,
   ctx: TypeGeneratorContext
 ) => {
-  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  const {
+    currentNamespace,
+    knownTypes,
+    alreadyDefinedTypes,
+    schemaCatalog,
+    context,
+    factory,
+  } = ctx;
 
   const _type = factory.createUnionTypeNode(
     type.choices.map(
@@ -23,6 +30,7 @@ export const generateUnionType = (
         createSingleTyping(choice, {
           currentNamespace,
           knownTypes,
+          alreadyDefinedTypes,
           schemaCatalog,
           factory,
           context: "inline",

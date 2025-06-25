@@ -26,7 +26,14 @@ export const generateFunctionType = (
   type: FunctionType,
   ctx: TypeGeneratorContext
 ) => {
-  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  const {
+    currentNamespace,
+    knownTypes,
+    alreadyDefinedTypes,
+    schemaCatalog,
+    context,
+    factory,
+  } = ctx;
 
   const isAsync =
     (isAsyncFunctionType(type) && type.async === true) ||
@@ -55,6 +62,7 @@ export const generateFunctionType = (
       let maybeReturnType = createSingleTyping(maybeCallback.parameters[0], {
         currentNamespace,
         knownTypes,
+        alreadyDefinedTypes,
         schemaCatalog,
         factory,
         context: "inline",
@@ -80,6 +88,7 @@ export const generateFunctionType = (
     const maybeReturnType = createSingleTyping(type.returns, {
       currentNamespace,
       knownTypes,
+      alreadyDefinedTypes,
       schemaCatalog,
       factory,
       context: "inline",
@@ -102,6 +111,7 @@ export const generateFunctionType = (
     const derivedParamType = createSingleTyping(param as WebExtensionType, {
       currentNamespace,
       knownTypes,
+      alreadyDefinedTypes,
       schemaCatalog,
       factory,
       context: "inline",

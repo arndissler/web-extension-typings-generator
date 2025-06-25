@@ -164,6 +164,7 @@ export type WebExtensionSchemaMapping = {
 export type TypeGeneratorContext = {
   currentNamespace: string;
   knownTypes: WebExtensionType[];
+  alreadyDefinedTypes: ts.Node[];
   schemaCatalog: WebExtensionSchemaMapping;
   context: "namespace" | "interface" | "inline";
   factory: ts.NodeFactory;

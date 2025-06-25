@@ -13,7 +13,14 @@ export const generateReferenceType = (
   type: ReferenceType,
   ctx: TypeGeneratorContext
 ) => {
-  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  const {
+    currentNamespace,
+    knownTypes,
+    alreadyDefinedTypes,
+    schemaCatalog,
+    context,
+    factory,
+  } = ctx;
 
   const referenceLink = type.$ref.split(".");
   if (referenceLink.length === 1) {

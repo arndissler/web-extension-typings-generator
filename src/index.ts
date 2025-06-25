@@ -76,6 +76,7 @@ const createTypingsForNamespace = (
                 {
                   currentNamespace: namespace,
                   knownTypes: types,
+                  alreadyDefinedTypes: typeDeclarations,
                   schemaCatalog: mergedSchema,
                   factory,
                   context: "namespace",
@@ -176,6 +177,7 @@ const createTypingsForNamespace = (
           const functionDeclaration = createSingleTyping(preparedType, {
             currentNamespace: namespace,
             knownTypes: types,
+            alreadyDefinedTypes: typeDeclarations,
             schemaCatalog: mergedSchema,
             factory,
             context: "namespace",
@@ -224,6 +226,7 @@ const createTypingsForNamespace = (
         const functionDeclaration = createSingleTyping(type, {
           currentNamespace: namespace,
           knownTypes: types,
+          alreadyDefinedTypes: typeDeclarations,
           schemaCatalog: mergedSchema,
           factory,
           context: "namespace",
@@ -241,6 +244,7 @@ const createTypingsForNamespace = (
       const declaration = createSingleTyping(type, {
         currentNamespace: namespace,
         knownTypes: types,
+        alreadyDefinedTypes: typeDeclarations,
         schemaCatalog: mergedSchema,
         factory,
         context: "interface",
@@ -283,6 +287,7 @@ const createTypingsForNamespace = (
     let eventCallbackType = createSingleTyping(event, {
       currentNamespace: namespace,
       knownTypes: types,
+      alreadyDefinedTypes: typeDeclarations,
       schemaCatalog: mergedSchema,
       factory,
       context: "inline",
@@ -331,6 +336,7 @@ const createTypingsForNamespace = (
               {
                 currentNamespace: namespace,
                 knownTypes: types,
+                alreadyDefinedTypes: typeDeclarations,
                 schemaCatalog: mergedSchema,
                 factory,
                 context: "inline",
@@ -375,6 +381,7 @@ const createTypingsForNamespace = (
           const paramType = createSingleTyping(param, {
             currentNamespace: namespace,
             knownTypes: types,
+            alreadyDefinedTypes: typeDeclarations,
             schemaCatalog: mergedSchema,
             factory,
             context: "inline",
@@ -497,6 +504,7 @@ const createTypingsForNamespace = (
             {
               currentNamespace: namespace,
               knownTypes: types,
+              alreadyDefinedTypes: typeDeclarations,
               schemaCatalog: mergedSchema,
               factory,
               context: "namespace",

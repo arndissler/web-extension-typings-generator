@@ -13,12 +13,20 @@ export const generateArrayType = (
   type: ArrayType,
   ctx: TypeGeneratorContext
 ) => {
-  const { currentNamespace, knownTypes, schemaCatalog, context, factory } = ctx;
+  const {
+    currentNamespace,
+    knownTypes,
+    alreadyDefinedTypes,
+    schemaCatalog,
+    context,
+    factory,
+  } = ctx;
 
   const itemOfType = factory.createArrayTypeNode(
     createSingleTyping(type.items, {
       currentNamespace,
       knownTypes,
+      alreadyDefinedTypes,
       schemaCatalog,
       factory,
       context: "inline",
