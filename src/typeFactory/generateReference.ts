@@ -28,15 +28,38 @@ export const generateReferenceType = (
     const localType = schemaCatalog[currentNamespace].types.find(
       (someType) => isWithId(someType) && someType.id === type.$ref
     );
+
+    // check if the type is somewhere in the global scope
     const manifestType = schemaCatalog["manifest"].types.find(
       (someType) => isWithId(someType) && someType.id === type.$ref
     );
 
-    if (localType === undefined && manifestType !== undefined) {
-      console.warn(
-        `Warning: schema incorrect, referenced local type: ${type.$ref} in '${currentNamespace}', but should reference manifest.${type.$ref}`
-      );
-      type.$ref = `manifest.${type.$ref}`;
+    // check if the type is already defined by another namespace
+    const alreadyDefinedType = alreadyDefinedTypes.find((node) => {
+      if (
+        ts.isTypeAliasDeclaration(node) ||
+        ts.isInterfaceDeclaration(node) ||
+        ts.isFunctionDeclaration(node)
+      ) {
+        if (node.name && ts.isIdentifier(node.name)) {
+          return node.name.text === type.$ref;
+        }
+      }
+
+      return false;
+    });
+
+    if (alreadyDefinedType === undefined && localType === undefined) {
+      if (manifestType !== undefined) {
+        console.warn(
+          `Warning: schema incorrect, referenced local type: ${type.$ref} in '${currentNamespace}', but should reference manifest.${type.$ref}`
+        );
+        type.$ref = `manifest.${type.$ref}`;
+      } else {
+        console.warn(
+          `Warning: referenced type '${type.$ref}' not found in schema '${currentNamespace}'`
+        );
+      }
     }
   }
 
