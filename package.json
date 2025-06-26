@@ -1,11 +1,14 @@
 {
-  "name": "mail-extension-typings",
+  "name": "web-extension-typings-generator",
   "version": "0.1.0",
   "description": "Simple typings generator for Thunderbird WebExtension schema",
   "main": "dist/index.js",
   "bin": {
     "generate-web-extension-typings": "dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "ts-node-esm src/cli.ts",
     "build": "tsc"
