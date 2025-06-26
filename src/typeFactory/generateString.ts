@@ -17,29 +17,32 @@ export const generateStringType = (
 
   // string enum type creates a string literal union type
   if (isEnumStringType(type)) {
+    const choices = type.enum
+      .map((value) => {
+        if (typeof value === "string") {
+          return factory.createLiteralTypeNode(
+            factory.createStringLiteral(value)
+          );
+        }
+
+        if (isWithName(value)) {
+          let result = factory.createLiteralTypeNode(
+            factory.createStringLiteral(value.name)
+          );
+          if (isWithDescription(value)) {
+            result = addJsDocAnnotation(value, result);
+          }
+
+          return result;
+        }
+
+        return null;
+      })
+      .filter((item) => item !== null);
     const _type = factory.createUnionTypeNode(
-      type.enum
-        .map((value) => {
-          if (typeof value === "string") {
-            return factory.createLiteralTypeNode(
-              factory.createStringLiteral(value)
-            );
-          }
-
-          if (isWithName(value)) {
-            let result = factory.createLiteralTypeNode(
-              factory.createStringLiteral(value.name)
-            );
-            if (isWithDescription(value)) {
-              result = addJsDocAnnotation(value, result);
-            }
-
-            return result;
-          }
-
-          return null;
-        })
-        .filter((item) => item !== null)
+      choices.length > 0
+        ? choices
+        : [factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword)]
     );
 
     if (context === "inline") {
